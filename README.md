@@ -43,7 +43,7 @@ Code orchestration (`codex-swarm`) and image generation (`swarmgpt-imagegen`) ha
 
 ### ChatGPT (eligible accounts)
 
-This GitHub marketplace installation path is verified for Codex. SwarmGPT is currently unlisted in ChatGPT's Plugins Directory, so do not expect to find it by searching the directory. If your ChatGPT account and workspace policy support personal Skills, use **Plugins → Skills → Create → Upload from your computer** to import the skill package, following [OpenAI's Skills guidance](https://help.openai.com/en/articles/20001066). After a successful import or installation, use `@swarmGPT` only on surfaces that expose that mention.
+This GitHub marketplace installation path is verified for Codex. SwarmGPT is currently unlisted in ChatGPT's Plugins Directory, so do not expect to find it by searching the directory. If your ChatGPT account and workspace policy support personal Skills, use **Plugins → Skills → Create → Upload from your computer** to import the skill package, following [OpenAI's Skills guidance](https://help.openai.com/en/articles/20001066). Once installed, ChatGPT may use a personal Skill automatically when helpful, or you can ask in plain language to use the installed `codex-swarm` or `swarmgpt-imagegen` skill.
 
 ---
 
@@ -58,11 +58,12 @@ This GitHub marketplace installation path is verified for Codex. SwarmGPT is cur
 
 ### ChatGPT (eligible accounts)
 
-Manage the imported skills through **Plugins → Skills**. After installation or import, use `@swarmGPT` only where that mention is exposed. Support depends on the ChatGPT surface, account eligibility, and workspace administrator policy; Codex-only `/plugins`, `/skills`, and `$skill-name` invocation do not apply here.
+Manage imported skills through **Plugins → Skills**. ChatGPT may use an installed personal Skill automatically when helpful; you can also make a plain-language request that names the installed `codex-swarm` or `swarmgpt-imagegen` skill. Support depends on the ChatGPT surface, account eligibility, and workspace administrator policy; Codex-only `/plugins`, `/skills`, and `$skill-name` invocation do not apply here.
 
 > [!WARNING]
 > * There is **no `/swarmGPT` slash command** (slash commands are not the distributable mechanism for plugins).
 > * ChatGPT cannot directly load this repository checkout as a plugin. Eligible users may upload personal skills through the supported ChatGPT Skills flow.
+> * `@swarmGPT` is not currently advertised as an available invocation. Reserve that mention for a future verified connected-plugin installation that explicitly exposes it.
 
 ---
 
@@ -128,18 +129,18 @@ SwarmGPT utilizes a lightweight, native-first architecture:
 
 ## Compatibility Matrix
 
-| Environment / Host | Plugin Loading | `codex-swarm` | `swarmgpt-imagegen` | `@swarmGPT` Mentions |
+| Environment / Host | Plugin Loading | `codex-swarm` | `swarmgpt-imagegen` | Invocation |
 | :--- | :--- | :--- | :--- | :--- |
-| **Codex with plugin and collaboration support** | Supported when enabled by the host | Requires native subagents and required model access | Requires built-in `$imagegen` | Not the invocation path; use `$skill-name` |
-| **ChatGPT with personal Skills access** | Repository checkout is not directly loadable as a plugin; skill upload/import may be available | Depends on exposed skill and collaboration capabilities | Depends on a native image capability | Conditional after installation/import and only where exposed |
-| **ChatGPT without personal Skills access** | Not supported through this repository | Not claimed | Not claimed | Not available for SwarmGPT |
+| **Codex with plugin and collaboration support** | Supported when enabled by the host | Requires native subagents and required model access | Requires built-in `$imagegen` | Use `$skill-name` |
+| **ChatGPT with personal Skills access** | Repository checkout is not directly loadable as a plugin; skill upload/import may be available | Depends on exposed skill and collaboration capabilities | Depends on a native image capability | Automatic when helpful, or a plain-language request naming the installed skill |
+| **ChatGPT without personal Skills access** | Not supported through this repository | Not claimed | Not claimed | Not available |
 
 ---
 
 ## Troubleshooting & FAQ
 
 #### Why is there no `/swarmGPT` command?
-Top-level custom slash commands are not the distributable mechanism for this plugin. In Codex, use `$codex-swarm`, `$swarmgpt-imagegen`, and `/skills`; in eligible ChatGPT accounts, import the skills through **Plugins → Skills** and use `@swarmGPT` only after installation/import and where mentions are available.
+Top-level custom slash commands are not the distributable mechanism for this plugin. In Codex, use `$codex-swarm`, `$swarmgpt-imagegen`, and `/skills`; in eligible ChatGPT accounts, import the skills through **Plugins → Skills**, then let ChatGPT use them automatically or ask in plain language for an installed skill by name. `@swarmGPT` would require a future verified connected-plugin installation and is not currently advertised as available.
 
 #### Why are the skills not showing up after installation?
 In Codex, open a fresh session and check `/skills`. In an eligible ChatGPT account, confirm the imported skills under **Plugins → Skills**. Account and workspace policy may restrict availability.
