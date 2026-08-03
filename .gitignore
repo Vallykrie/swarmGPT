@@ -1,5 +1,9 @@
 # codex-swarm run artifacts
 .codex-swarm/
+.gemini-swarm/
+
+# Isolated implementation worktrees
+.worktrees/
 
 # macOS
 .DS_Store
