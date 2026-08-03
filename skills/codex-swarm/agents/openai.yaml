@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Swarm"
+  short_description: "Delegate substantial work to Codex subagents"
+  default_prompt: "Use $codex-swarm to delegate, coordinate, review, and verify this substantial task."

@@ -1,0 +1,12 @@
+# codex-swarm run artifacts
+.codex-swarm/
+
+# macOS
+.DS_Store
+.AppleDouble
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*~
