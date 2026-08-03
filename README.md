@@ -1,114 +1,196 @@
-# codex-swarm
+# SwarmGPT: Multi-Agent Orchestration & Native Image Generation for ChatGPT and Codex
 
-> **Subagents do the substantive writing. The host Codex agent orchestrates and verifies.**
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![Version](https://img.shields.io/badge/Version-0.1.0-blue.svg)](.codex-plugin/plugin.json)
+[![Compatibility: ChatGPT + Codex](https://img.shields.io/badge/Compatibility-ChatGPT%20%2B%20Codex-brightgreen.svg)](#compatibility-matrix)
 
-`codex-swarm` is a Codex-native skill for delegating substantial work through Codex collaboration tools. For changes spanning more than one file or roughly 20 lines, the host decomposes the request, routes each independent subtask to the prescribed model, coordinates bounded parallel execution, reviews every result, verifies the integrated output, and records a persistent audit log.
+SwarmGPT is a universal, skills-only plugin designed for ChatGPT and Codex that brings robust multi-agent orchestration and coordinated native image generation directly into your AI workspace. By leveraging native host capabilities without relying on external servers, CLI orchestrators, or third-party API keys, SwarmGPT enables developer teams to seamlessly route complex coding tasks to specialized subagents and coordinate advanced parallel image generation workflows.
 
-The skill uses native subagents—no shell dispatcher, prompt-file protocol, external agent CLI, or third-party model session is required. A single delegated subtask is valid when the work is substantial but cannot be parallelized.
+---
 
-## What it does
+## Feature Overview
 
-The host Codex agent remains responsible for:
+| Skill | Invocation Trigger | Primary Purpose | Key Features & Capabilities |
+| :--- | :--- | :--- | :--- |
+| **[`codex-swarm`](skills/codex-swarm/SKILL.md)** | `$codex-swarm`<br>(or selection via `/skills` / `@swarmGPT` mention) | Multi-agent task decomposition, parallel coding, and review. | • Automatic model routing (`gpt-5.6-sol` / `gpt-5.6-luna`) based on complexity.<br>• Parallel subagent execution with bounded turns.<br>• Integration-level verification and audit logs. |
+| **[`swarmgpt-imagegen`](skills/swarmgpt-imagegen/SKILL.md)** | `$swarmgpt-imagegen`<br>(or selection via `/skills`) | Native image generation and editing coordination. | • Bounded parallel generation of multiple assets/variants.<br>• Native input inspection, reference passing, and verification.<br>• Cleanly blocks if required host tools are unavailable. |
 
-1. understanding scope and acceptance criteria;
-2. decomposing work into exclusive ownership boundaries;
-3. routing and launching subagents within available concurrency;
-4. coordinating corrections and dependencies;
-5. reviewing and integrating every result;
-6. running integration-level verification; and
-7. reporting the outcome and, when authorized and writable, writing `.codex-swarm/logs/<ISO-timestamp>.md`.
+---
 
-Subagents perform the substantive code, test, documentation, and content writing.
+## Why / What
 
-## Model routing
+### Why a Plugin?
+Traditional custom slash prompts or custom command scripts are difficult to distribute and manage across multiple modern AI surfaces. By aligning with the universal plugin architecture, SwarmGPT provides a standard distribution mechanism: discovery via `/skills`, direct invocation via `$skill-name`, and targeted interactions via `@` mentions where the host supports them.
 
-Routing is automatic. The skill never asks the user to select a model.
+### Why Separate Skills?
+Code orchestration (`codex-swarm`) and image generation (`swarmgpt-imagegen`) have fundamentally different inputs, outputs, verification paths, and failure modes.
+* Combining them would violate the single-responsibility principle and bloat the context window.
+* Keeping them separate ensures that each workspace handles only what it supports. For instance, if a host workspace lacks image capabilities, `codex-swarm` continues to operate flawlessly while `swarmgpt-imagegen` blocks cleanly without causing runtime failures.
 
-| Work profile | Exact model override | Exact reasoning effort |
-|---|---|---|
-| Reasoning-heavy, ambiguous, risky, architecture, debugging, tricky refactors, integration-sensitive work | `gpt-5.6-sol` | `medium` |
-| Easy, isolated, boilerplate, mechanical, documentation, straightforward tests, bulk work | `gpt-5.6-luna` | `max` |
-
-These pairs are intentional. In particular, easy work still uses `reasoning_effort: max` with `gpt-5.6-luna`.
+---
 
 ## Installation
 
-Clone or download this repository, then copy the skill folder to one of the directories below.
+To add the SwarmGPT plugin to your environment, follow these steps:
 
-### Portable Codex-compatible location
+1. Run the following command in your terminal to register the plugin with your marketplace:
+   ```bash
+   codex plugin marketplace add Vallykrie/swarmGPT
+   ```
+2. Open the plugin browser by entering `/plugins` in your interface and confirm the installation of **SwarmGPT**.
+3. Discover and verify the active skills by typing `/skills`.
+4. **Important:** After installation, you **must open a fresh ChatGPT or Codex session** to reload the plugin and refresh the skill catalog.
 
-Use `~/.agents/skills/` when you want a portable location recognized by Codex and compatible agent harnesses:
+---
 
-```bash
-mkdir -p ~/.agents/skills
-cp -R skills/codex-swarm ~/.agents/skills/codex-swarm
-```
+## Invocation & Usage
 
-### Codex-specific location
+### Interface Navigation
+* **`/plugins`**: Used to browse, install, and manage plugins in your environment.
+* **`/skills`**: Used to discover, search, and inspect the catalog of active skills.
 
-Alternatively, install directly into Codex's skill directory:
+### Invocation Commands
+* **Codex Workspaces**:
+  * Invoke the coding swarm: `$codex-swarm`
+  * Invoke the image generation swarm: `$swarmgpt-imagegen`
+* **ChatGPT surfaces**:
+  * On supported ChatGPT Work or Enterprise workspaces, use `@swarmGPT` mentions to target the plugin directly, subject to surface availability and workspace administration policies.
 
-```bash
-mkdir -p ~/.codex/skills
-cp -R skills/codex-swarm ~/.codex/skills/codex-swarm
-```
+> [!WARNING]
+> * There is **no `/swarmGPT` slash command** (slash commands are not the distributable mechanism for plugins).
+> * The consumer ChatGPT web UI **cannot load arbitrary local skills** or custom plugins; compatibility is limited to supported workspaces.
 
-Restart or open a fresh Codex task after installation so the skill catalog refreshes. The host harness must expose Codex collaboration/subagent tools and model overrides for the full workflow.
+---
 
-This repository targets Codex and Codex-compatible agent harnesses. It does not claim that the ChatGPT consumer UI can load arbitrary local skills.
+## Automatic Model Routing
 
-## Usage
+Under the `codex-swarm` skill, task complexity is analyzed and work is automatically routed to the prescribed model configuration:
 
-Invoke the skill explicitly:
+| Work Profile | Target Model | reasoning_effort | Description |
+| :--- | :--- | :--- | :--- |
+| **Reasoning-Heavy** | `gpt-5.6-sol` | `medium` | Used for ambiguous, risky, architectural changes, debugging, and tricky refactors. |
+| **Easy / Boilerplate** | `gpt-5.6-luna` | `max` | Used for isolated work, mechanical updates, docs, bulk edits, and straightforward tests. |
+
+### Routing Guarantees
+* **No Silent Substitutions**: If a required model is unavailable or a subtask spawn rejects the model or reasoning effort overrides, the plugin performs exactly one error check. It marks the subtask blocked, logs the routing failure, and halts to request explicit user authorization. It will never silently substitute a model or loop endlessly.
+
+---
+
+## Coordinated Image Workflow
+
+`swarmgpt-imagegen` orchestrates image asset creation and manipulation through the host's native capabilities:
+
+1. **Asset Manifest**: Requests are decomposed into a strict asset manifest specifying purpose, prompt, constraints, destination path, and file format.
+2. **One Call Per Asset/Variant**: Exactly one native image generation or edit call is executed per asset or variant. Retries are tracked as separate variants with their own paths.
+3. **Safe Bounded Parallelism**: Parallelizes independent asset generation up to the host's concurrency limits; sequential dependency chains are executed in order.
+4. **Exclusive Paths**: Every generation task has an exclusive working path. No two tasks may write, copy, or move to the same path concurrently.
+5. **Input & Output Inspection**:
+   * **Edits**: Existing local inputs are resolved and inspected using a local viewer before being passed as references to the host tool.
+   * **Verification**: Outputs are visually inspected for compliance with prompt constraints, and final formats are verified from file contents/metadata, not just the file extension.
+6. **Clean Blocking**: Image generation depends entirely on the host exposing its built-in `$imagegen` capability. If that capability is missing, the skill blocks cleanly and lists incomplete items instead of fabricating output.
+
+> [!NOTE]
+> SwarmGPT does not guarantee API-key-free image generation unless the hosting platform provides a built-in, unauthenticated capability.
+
+---
+
+## Native Architecture
+
+SwarmGPT utilizes a lightweight, native-first architecture:
+* **Host-Native Subagents**: Collaboration and parallel tasks are managed entirely through the host's native subagent APIs.
+* **No MCP Server**: Does not require a Model Context Protocol server.
+* **No Standalone CLI**: Operates fully within the ChatGPT/Codex runtime without external dispatch wrappers.
+* **No Required Third-Party Keys**: The plugin defines no required external API key; image availability and authentication remain the responsibility of the host.
+
+---
+
+## Examples
+
+### Multi-Agent Code Swarm (`codex-swarm`)
+* **Prompt**:
+  ```text
+  Use $codex-swarm to migrate the legacy API modules in src/legacy/ and add corresponding unit tests.
+  ```
+* **Process**: The host decomposes the work, assigning the API logic refactoring (`gpt-5.6-sol`) and unit tests (`gpt-5.6-luna`) to separate subagents under exclusive paths.
+
+### Coordinated Image Batch (`swarmgpt-imagegen`)
+* **Prompt**:
+  ```text
+  Use $swarmgpt-imagegen to generate three icons: a light-mode version at assets/icon-light.png, a dark-mode version at assets/icon-dark.png, and a high-res logo at assets/logo.png.
+  ```
+* **Process**: The host schedules three parallel, native generation tasks, writes them to their exclusive paths, validates their metadata, and outputs the final paths.
+
+---
+
+## Compatibility Matrix
+
+| Environment / Host | Plugin Loading | `codex-swarm` | `swarmgpt-imagegen` | `@swarmGPT` Mentions |
+| :--- | :--- | :--- | :--- | :--- |
+| **Codex with plugin and collaboration support** | Supported when enabled by the host | Requires native subagents and required model access | Requires built-in `$imagegen` | Not the invocation path; use `$skill-name` |
+| **Supported ChatGPT Work surfaces** | Depends on surface and workspace policy | Depends on exposed skill and collaboration capabilities | Depends on a native image capability | Supported where plugin mentions are exposed |
+| **Consumer ChatGPT** | No arbitrary local-skill loading claimed | Not claimed | Not claimed | Surface-dependent; not guaranteed |
+
+---
+
+## Troubleshooting & FAQ
+
+#### Why is there no `/swarmGPT` command?
+Slash commands are not standard distributable mechanisms for universal plugins. Instead, SwarmGPT uses standard `$codex-swarm` and `$swarmgpt-imagegen` invocations, `/skills` discovery, and `@swarmGPT` mentions where supported.
+
+#### Why are the skills not showing up after installation?
+Ensure you have opened a fresh ChatGPT/Codex session so the host refreshes its skill catalog.
+
+#### What happens if the required models are missing?
+The plugin will not silently fall back. It blocks the execution and asks for explicit confirmation before proceeding with any model fallbacks.
+
+#### Can I load arbitrary local skills on consumer ChatGPT?
+No, the consumer ChatGPT interface does not support loading arbitrary local skills or plugins.
+
+---
+
+## Repository Tree
 
 ```text
-Use $codex-swarm to add an authenticated API, tests, and setup documentation.
-```
-
-```text
-Use $codex-swarm to fan out migration of the independent modules under src/legacy/.
-```
-
-```text
-Use $codex-swarm to delegate this substantial single-file parser refactor to one subagent.
-```
-
-It also triggers implicitly before writing or editing code, tests, docs, or other content that spans more than one file or roughly 20 lines, and when a user explicitly asks to swarm, fan out, parallelize, delegate, or use Codex/ChatGPT subagents. Merely asking about ChatGPT or Codex does not trigger the skill. Trivial one-file edits and read-only answers can remain local.
-
-## Behavior
-
-Each subtask receives a self-contained prompt with exact readable context, exclusive writable paths, requirements, acceptance criteria, and verification commands. Spawns with model/effort overrides explicitly use `fork_turns: "none"` (preferred) or a positive bounded turn count; full-history forks are incompatible with overrides. Independent tasks launch immediately up to the current concurrency limit; as agents finish, the host refills available slots. Shared and integration-sensitive files remain with the host or one explicit owner. Each `wait_agent` call is capped at 60 seconds, with a user update before any additional wait.
-
-If work fails, the host inspects concrete evidence and sends a focused follow-up to the same agent when practical. It reassigns only the affected task when needed and does not silently rewrite all delegated output locally. If a required model is unavailable, the host performs one availability/error check, marks the subtask blocked, and asks for explicit fallback authorization; it never loops or silently substitutes. Completion reports include changed files, verification, assumptions, blockers, and a concise result.
-
-The host reviews the actual artifacts and runs integration-level checks before claiming success. Agent reports and run logs support that review; neither replaces it.
-
-## Audit logs
-
-When project writes are authorized and the path is writable, every run writes:
-
-```text
-.codex-swarm/logs/<ISO-timestamp>.md
-```
-
-The log records the overall summary and wall-clock duration, integration verification, and—for every subtask—the model, reasoning effort, status, files, verification, and result. Failed or reassigned attempts remain visible. `.codex-swarm/` is ignored by this repository by default so project-local audit trails do not enter version control accidentally.
-
-For read-only requests, path-restricted tasks, or unwritable projects, the host makes no unauthorized log write. It reports persistence as blocked and includes the compact audit in its final response instead.
-
-## Repository layout
-
-```text
-codex-swarm/
+.
+├── .agents/
+│   └── plugins/
+│       └── marketplace.json
+├── .codex-plugin/
+│   └── plugin.json
+├── docs/
+│   └── superpowers/
+│       └── specs/
+│           └── 2026-08-03-swarmgpt-public-plugin-design.md
+├── skills/
+│   ├── codex-swarm/
+│   │   ├── SKILL.md
+│   │   └── agents/
+│   │       └── openai.yaml
+│   └── swarmgpt-imagegen/
+│       ├── SKILL.md
+│       └── agents/
+│           └── openai.yaml
 ├── .gitignore
 ├── LICENSE
-├── README.md
-└── skills/
-    └── codex-swarm/
-        ├── SKILL.md
-        └── agents/
-            └── openai.yaml
+└── README.md
 ```
+
+---
+
+## Contributing
+
+Contributions are welcome! Please ensure that additions and bug fixes preserve the contracts in the bundled [`codex-swarm`](skills/codex-swarm/SKILL.md) and [`swarmgpt-imagegen`](skills/swarmgpt-imagegen/SKILL.md) skills, including their single-responsibility separation.
+
+Please file issues or submit pull requests directly to the repository homepage: [Vallykrie/swarmGPT](https://github.com/Vallykrie/swarmGPT).
+
+---
 
 ## License
 
-[MIT](LICENSE) © 2026 Nathan ([Vallykrie](https://github.com/Vallykrie)).
+This project is licensed under the [MIT License](./LICENSE).
+
+---
+
+## Keywords
+
+`chatgpt`, `codex`, `openai`, `multi-agent`, `subagents`, `agent-skills`, `codex-plugin`, `image-generation`, `developer-tools`, `ai-agents`
