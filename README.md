@@ -10,17 +10,17 @@ SwarmGPT is a universal, skills-only plugin designed for ChatGPT and Codex that 
 
 ## Feature Overview
 
-| Skill | Invocation Trigger | Primary Purpose | Key Features & Capabilities |
+| Skill | Codex Invocation | Primary Purpose | Key Features & Capabilities |
 | :--- | :--- | :--- | :--- |
-| **[`codex-swarm`](skills/codex-swarm/SKILL.md)** | `$codex-swarm`<br>(or selection via `/skills` / `@swarmGPT` mention) | Multi-agent task decomposition, parallel coding, and review. | • Automatic model routing (`gpt-5.6-sol` / `gpt-5.6-luna`) based on complexity.<br>• Parallel subagent execution with bounded turns.<br>• Integration-level verification and audit logs. |
-| **[`swarmgpt-imagegen`](skills/swarmgpt-imagegen/SKILL.md)** | `$swarmgpt-imagegen`<br>(or selection via `/skills`) | Native image generation and editing coordination. | • Bounded parallel generation of multiple assets/variants.<br>• Native input inspection, reference passing, and verification.<br>• Cleanly blocks if required host tools are unavailable. |
+| **[`codex-swarm`](skills/codex-swarm/SKILL.md)** | `$codex-swarm`<br>(or selection via `/skills` in Codex) | Multi-agent task decomposition, parallel coding, and review. | • Automatic model routing (`gpt-5.6-sol` / `gpt-5.6-luna`) based on complexity.<br>• Parallel subagent execution with bounded turns.<br>• Integration-level verification and audit logs. |
+| **[`swarmgpt-imagegen`](skills/swarmgpt-imagegen/SKILL.md)** | `$swarmgpt-imagegen`<br>(or selection via `/skills` in Codex) | Native image generation and editing coordination. | • Bounded parallel generation of multiple assets/variants.<br>• Native input inspection, reference passing, and verification.<br>• Cleanly blocks if required host tools are unavailable. |
 
 ---
 
 ## Why / What
 
 ### Why a Plugin?
-Traditional custom slash prompts or custom command scripts are difficult to distribute and manage across multiple modern AI surfaces. By aligning with the universal plugin architecture, SwarmGPT provides a standard distribution mechanism: discovery via `/skills`, direct invocation via `$skill-name`, and targeted interactions via `@` mentions where the host supports them.
+Traditional custom slash prompts or custom command scripts are difficult to distribute and manage across multiple modern AI surfaces. By aligning with the universal plugin architecture, SwarmGPT provides standard, surface-specific distribution: Codex uses `/skills` and `$skill-name`, while supported ChatGPT Work surfaces use the graphical Plugins Directory and `@` mentions where available.
 
 ### Why Separate Skills?
 Code orchestration (`codex-swarm`) and image generation (`swarmgpt-imagegen`) have fundamentally different inputs, outputs, verification paths, and failure modes.
@@ -31,30 +31,34 @@ Code orchestration (`codex-swarm`) and image generation (`swarmgpt-imagegen`) ha
 
 ## Installation
 
-To add the SwarmGPT plugin to your environment, follow these steps:
+### Codex
 
-1. Run the following command in your terminal to register the plugin with your marketplace:
+1. Register the repository marketplace from a terminal:
    ```bash
    codex plugin marketplace add Vallykrie/swarmGPT
    ```
-2. Open the plugin browser by entering `/plugins` in your interface and confirm the installation of **SwarmGPT**.
-3. Discover and verify the active skills by typing `/skills`.
-4. **Important:** After installation, you **must open a fresh ChatGPT or Codex session** to reload the plugin and refresh the skill catalog.
+2. In Codex, use `/plugins` to browse the added marketplace and install **SwarmGPT**.
+3. Use `/skills` in Codex to confirm that both bundled skills are active.
+4. Open a fresh Codex session after installation so the plugin and skill catalogs refresh.
+
+### Supported ChatGPT Work surfaces
+
+Open the graphical **Plugins Directory**, locate **SwarmGPT**, and install it if your account and workspace policy allow it. Then open a fresh ChatGPT session and use `@swarmGPT` where plugin mentions are available. Availability depends on the ChatGPT surface, account, and workspace policy.
 
 ---
 
 ## Invocation & Usage
 
-### Interface Navigation
-* **`/plugins`**: Used to browse, install, and manage plugins in your environment.
-* **`/skills`**: Used to discover, search, and inspect the catalog of active skills.
-
-### Invocation Commands
-* **Codex Workspaces**:
+### Codex
+* **`/plugins`**: Browse, install, and manage plugins.
+* **`/skills`**: Discover and inspect active skills.
+* **Skill invocation**:
   * Invoke the coding swarm: `$codex-swarm`
   * Invoke the image generation swarm: `$swarmgpt-imagegen`
-* **ChatGPT surfaces**:
-  * On supported ChatGPT Work or Enterprise workspaces, use `@swarmGPT` mentions to target the plugin directly, subject to surface availability and workspace administration policies.
+
+### Supported ChatGPT Work surfaces
+
+Use the graphical **Plugins Directory** for installation and management, then use `@swarmGPT` to target the plugin where mentions are exposed. Support depends on the ChatGPT surface, account eligibility, and workspace administrator policy; Codex-only `/plugins`, `/skills`, and `$skill-name` invocation do not apply here.
 
 > [!WARNING]
 > * There is **no `/swarmGPT` slash command** (slash commands are not the distributable mechanism for plugins).
@@ -90,7 +94,7 @@ Under the `codex-swarm` skill, task complexity is analyzed and work is automatic
 6. **Clean Blocking**: Image generation depends entirely on the host exposing its built-in `$imagegen` capability. If that capability is missing, the skill blocks cleanly and lists incomplete items instead of fabricating output.
 
 > [!NOTE]
-> SwarmGPT does not guarantee API-key-free image generation unless the hosting platform provides a built-in, unauthenticated capability.
+> No API key is required when the host exposes native image generation under its own authentication and included usage limits. An API/CLI fallback—or larger API-backed batches—may require `OPENAI_API_KEY`.
 
 ---
 
@@ -100,7 +104,7 @@ SwarmGPT utilizes a lightweight, native-first architecture:
 * **Host-Native Subagents**: Collaboration and parallel tasks are managed entirely through the host's native subagent APIs.
 * **No MCP Server**: Does not require a Model Context Protocol server.
 * **No Standalone CLI**: Operates fully within the ChatGPT/Codex runtime without external dispatch wrappers.
-* **No Required Third-Party Keys**: The plugin defines no required external API key; image availability and authentication remain the responsibility of the host.
+* **Native-First Authentication**: The plugin itself defines no required API key. Native image generation uses host authentication and included limits; API/CLI fallbacks and larger API-backed batches may require `OPENAI_API_KEY`.
 
 ---
 
@@ -135,10 +139,10 @@ SwarmGPT utilizes a lightweight, native-first architecture:
 ## Troubleshooting & FAQ
 
 #### Why is there no `/swarmGPT` command?
-Slash commands are not standard distributable mechanisms for universal plugins. Instead, SwarmGPT uses standard `$codex-swarm` and `$swarmgpt-imagegen` invocations, `/skills` discovery, and `@swarmGPT` mentions where supported.
+Top-level custom slash commands are not the distributable mechanism for this plugin. In Codex, use `$codex-swarm`, `$swarmgpt-imagegen`, and `/skills`; on supported ChatGPT Work surfaces, use the graphical Plugins Directory and `@swarmGPT` where mentions are available.
 
 #### Why are the skills not showing up after installation?
-Ensure you have opened a fresh ChatGPT/Codex session so the host refreshes its skill catalog.
+In Codex, open a fresh session and check `/skills`. On supported ChatGPT Work surfaces, open a fresh session and confirm installation in the graphical Plugins Directory. Account and workspace policy may restrict availability.
 
 #### What happens if the required models are missing?
 The plugin will not silently fall back. It blocks the execution and asks for explicit confirmation before proceeding with any model fallbacks.
