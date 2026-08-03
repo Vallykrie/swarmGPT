@@ -1,0 +1,29 @@
+{
+  "name": "swarmgpt",
+  "version": "0.1.0",
+  "description": "Multi-agent orchestration and image generation workflows for ChatGPT and Codex.",
+  "author": {
+    "name": "Nathan",
+    "email": "nathansudiara@gmail.com",
+    "url": "https://github.com/Vallykrie"
+  },
+  "homepage": "https://github.com/Vallykrie/swarmGPT",
+  "repository": "https://github.com/Vallykrie/swarmGPT.git",
+  "license": "MIT",
+  "keywords": ["chatgpt", "codex", "openai", "multi-agent", "subagents", "agent-skills", "image-generation", "ai-agents"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "SwarmGPT",
+    "shortDescription": "Orchestrate agents and image generation",
+    "longDescription": "Route substantial work across Codex subagents and coordinate native image generation with focused, verifiable workflows.",
+    "developerName": "Vallykrie",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/Vallykrie/swarmGPT",
+    "defaultPrompt": [
+      "Use Codex Swarm to parallelize this task.",
+      "Generate these image assets with SwarmGPT."
+    ],
+    "brandColor": "#10A37F"
+  }
+}
