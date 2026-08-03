@@ -1,0 +1,21 @@
+{
+  "name": "swarmgpt",
+  "interface": {
+    "displayName": "SwarmGPT"
+  },
+  "plugins": [
+    {
+      "name": "swarmgpt",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/Vallykrie/swarmGPT.git",
+        "ref": "main"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
