@@ -1,186 +1,217 @@
 ---
 name: codex-swarm
-description: Use when writing or editing code, tests, documentation, or other content across more than one file or roughly 20 lines; when substantial work needs delegation even as one subtask; or when the user explicitly asks to swarm, fan out, parallelize, delegate, or use Codex/ChatGPT subagents. Skip for trivial one-file edits and read-only answers.
+description: Use BEFORE writing or editing code, tests, docs, or other content yourself — whenever the writing spans more than one file or more than ~20 lines. Delegating the writing to Codex sessions via the `codex` CLI is the default; you orchestrate. Also use when the user asks to swarm/fan out/parallelize work across Codex or GPT, or invokes /codex-swarm. Triggers include implementing a feature, scaffolding or creating files, refactors, migrations, bulk edits, boilerplate, test suites, documentation, and multi-topic research. Skip only for trivial edits (a few lines in one file) or when the codex CLI is unavailable.
 ---
 
-# Codex Swarm
+# codex-swarm
 
-## Overview
+You are the **orchestrator**: you plan, decompose, route, and review. `codex
+exec` sessions running GPT-5.6 do the writing and the token-heavy bulk work.
+**Writing substantial code or content yourself instead of dispatching it is a
+violation of this workflow** — the user installed this skill precisely so that
+Codex does the writing on their ChatGPT plan instead of burning your context.
 
-Act as the orchestrator: decompose, route, coordinate, review, integrate, verify, and report. Delegate substantive writing to Codex subagents through native collaboration tools. Do not replace native delegation with shell dispatchers, prompt files, or external agent CLIs.
+Verified against Codex CLI **0.146.0**. Re-check `codex exec --help` if flags
+seem wrong — this CLI changes fast.
 
-**Default rule:** Delegate before writing substantial code or content yourself. A swarm of one is valid; parallelism is an optimization, not a prerequisite.
+## Delegate by default
 
-## Quick Reference
+Before you write anything, apply this rule:
 
-| Situation | Action |
-|---|---|
-| More than one file or roughly 20 lines of writing | Delegate before editing |
-| Explicit swarm, fan-out, parallelize, delegate, or Codex/ChatGPT subagent request | Use this workflow |
-| Substantial but sequential work | Delegate one coherent subtask |
-| Trivial edit in one file | Work locally |
-| Read-only answer, planning, or review | Work locally unless explicitly delegated |
-| Ambiguous, risky, architectural, debugging, or integration-sensitive work | `gpt-5.6-sol`, `reasoning_effort: medium` |
-| Easy, isolated, boilerplate, mechanical, documentation, straightforward tests, or bulk work | `gpt-5.6-luna`, `reasoning_effort: max` |
-| Agent needs correction | Send a focused follow-up to the same agent |
-| Agent is stuck or unsuitable | Reassign only the affected subtask |
+- Writing work that spans **more than one file or more than ~20 lines** →
+  dispatch it to Codex via this skill. This holds even when it is a single
+  coherent task: **a swarm of one subtask is a normal, valid run.** Parallel
+  fan-out is an optimization, not a precondition.
+- Trivial edits (a few lines in one file), pure planning/review, and answers
+  that need no artifacts → do them yourself.
+- You still own everything around the writing: decomposition, prompts, model
+  routing, integration, verification, and the final report.
 
-Never ask the user to choose a model. Apply the mapping exactly and automatically. In particular, do not reduce the easy model's effort: `gpt-5.6-luna` always receives `reasoning_effort: max` under this skill.
+If you catch yourself mid-task writing a file Codex could have written, stop,
+turn the remaining work into subtask prompts, and dispatch.
 
-## Workflow
+| Excuse for writing it yourself | Reality |
+|--------------------------------|---------|
+| "It's faster if I just write it" | Dispatch overhead is seconds; Codex writes while your context stays free for review. |
+| "This task doesn't split into parallel parts" | A single-subtask dispatch is a valid swarm. Splitting is optional. |
+| "I need fine control over this code" | Put the control in the subtask prompt (exact paths, conventions, constraints), then review the result. |
+| "The user didn't ask for a swarm" | The user installed this skill so Codex does the writing by default. Explicit invocation is not required. |
+| "I'm already halfway through writing it" | Sunk cost. Dispatch the remaining files. |
 
-### 1. Establish scope
+## Step 0 — Preflight
 
-1. Inspect the repository, applicable instructions, current changes, and available verification commands.
-2. Identify the deliverables, shared dependencies, integration points, and acceptance criteria.
-3. Reserve orchestration work for the host: decomposition, coordination, review, integration decisions, final verification, the run log, and the user report.
-4. Keep a shared or integration-sensitive file with the host or assign it to exactly one explicit owner.
+1. `command -v codex` — if missing, stop and tell the user to install the
+   Codex CLI (`npm install -g @openai/codex`) and run `codex login`.
+2. Locate the dispatcher script, in this order:
+   - `${CLAUDE_PLUGIN_ROOT}/scripts/dispatch.sh` (plugin install)
+   - `scripts/dispatch.sh` next to this SKILL.md (standalone skill install)
+   - `$(dirname "$0")/../../scripts/dispatch.sh` (repo checkout)
+3. If `codex exec` later fails every job with an auth error, stop and tell the
+   user to run `codex login` in a terminal. Never paste a key into chat.
 
-Do not use delegation to broaden authorization. Subagents inherit the task's safety, permission, and scope constraints.
+## Step 1 — Resolve the sandbox mode
 
-### 2. Decompose without overlapping writes
+The `/codex-swarm` command (or the user directly) supplies one of four modes.
+If none was given, use `default`.
 
-Split work along independent file, module, test, documentation, or research boundaries.
+| Mode | Dispatch flag | What the Codex jobs may do |
+|------|---------------|----------------------------|
+| `default` | mirror the host | If you are running with auto-accepted/bypassed permissions, use `--auto`. If your own edits require user review, use `--readonly`. |
+| `auto` | `--auto` | `--sandbox workspace-write`: write anywhere in the project, no network, no approval prompts. This is the normal mode for write tasks. |
+| `readonly` | `--readonly` | `--sandbox read-only`: read and analyze only. Jobs report findings or emit patches for you to apply. Use for research and for review-mode hosts. |
+| `yolo` | `--yolo` | `--dangerously-bypass-approvals-and-sandbox`: no sandbox at all. Only when the user explicitly asks and the environment is already isolated (container/VM). |
 
-- Give every write task an exclusive set of paths. No two agents may modify the same file.
-- Agents may read shared files for context.
-- Do not make concurrent tasks depend on outputs that do not yet exist. Dispatch dependent work only after its prerequisite is complete.
-- Keep a genuinely sequential core together. If it is still substantial, dispatch it as one subtask.
-- Prefer a few coherent tasks over tiny fragments that increase coordination cost.
+`codex exec` is non-interactive: there is no TTY to approve a gated command,
+so a job that needs approval stalls until the timeout. That is why the modes
+are sandbox levels rather than approval policies. Never ask the user to pick a
+mode mid-run; resolve it yourself from the rule above.
 
-Before dispatch, check that all required files have one owner and no file has two owners.
+## Step 2 — Decompose the task
 
-### 3. Route automatically
+Split the task into **independent** subtasks:
 
-Use these exact overrides:
+- No two subtasks may write the same file or depend on each other's output.
+  Prefer splits along existing boundaries: different files, modules,
+  directories, or research topics.
+- If a task has a genuinely sequential core, keep that core for yourself and
+  swarm only the independent parts.
+- Each subtask prompt must be **fully self-contained**. The Codex sessions
+  share nothing — no conversation history, no knowledge of the other subtasks.
+  Include in every prompt: the goal, the exact file paths to read/write,
+  relevant constraints/conventions, and the expected output format.
+- For write tasks, tell each subtask exactly which files it owns and to touch
+  nothing else. End each prompt with: "When done, print a line starting with
+  `TOUCHED:` listing every file you created or modified, then a one-paragraph
+  summary of what you did."
+- Typical fan-out is 1–10 subtasks. One subtask is fine when the task is a
+  single coherent unit — dispatch it anyway rather than writing it yourself.
 
-| Work profile | `model` | `reasoning_effort` |
+Before dispatch, check the ownership map: every required file has exactly one
+owner, and no file has two.
+
+## Step 3 — Route a model and effort per subtask
+
+Choose per subtask, automatically — never ask the user which model:
+
+| Work profile | `MODEL:` | `EFFORT:` |
 |---|---|---|
-| Reasoning-heavy, ambiguous, risky, architecture, debugging, tricky refactors, or integration-sensitive | `gpt-5.6-sol` | `medium` |
-| Easy, isolated, boilerplate, mechanical, documentation, straightforward tests, or bulk | `gpt-5.6-luna` | `max` |
+| Reasoning-heavy or ambiguous: debugging, architecture, tricky refactors, integration-sensitive changes, anything where a wrong answer is expensive | `gpt-5.6-sol` | `medium` |
+| Bulk, boilerplate, mechanical: scaffolding, mass renames, format conversions, test scaffolding, doc generation, file summarization, straightforward CRUD | `gpt-5.6-luna` | `max` |
 
-Classify each subtask by its hardest material requirement. Route high-cost mistakes or cross-system judgment to `gpt-5.6-sol`; route well-specified production to `gpt-5.6-luna`. Do not substitute another model or effort level because it seems available, cheaper, or customary.
+Classify each subtask by its hardest material requirement. These are exact
+Codex model slugs — pass them verbatim. Do not lower Luna's effort because the
+task looks easy; `gpt-5.6-luna` always gets `max` under this skill. Valid
+efforts are `low`, `medium`, `high`, `xhigh`, `max`.
 
-If a required model is unavailable or a spawn rejects its model/effort override, perform only one availability/error check for that routing failure. Mark the affected subtask blocked, report the unavailable exact mapping, and request explicit user authorization before using any fallback. Do not retry in a loop and never silently substitute a model or effort level.
+If a model is rejected by the CLI (every job for it fails immediately), check
+once with `codex exec --help` / the user's `~/.codex/config.toml`, then report
+the failure and ask before substituting. Never silently swap models.
 
-### 4. Write self-contained dispatch prompts
+## Step 4 — Write the subtask files
 
-Every subagent starts without relying on conversational inference. Include the necessary task-local context and use this compact contract:
+Create one prompt file per subtask in a temp directory (e.g.
+`$(mktemp -d)/01-slug.prompt.md`). Format — model header, optional effort
+header, blank line, then the prompt:
+
+```
+MODEL: gpt-5.6-luna
+EFFORT: max
+
+Create src/parser/tokens.ts ...
+```
+
+Name files `NN-short-slug.prompt.md`; the basename (minus `.prompt.md`)
+becomes the subtask name in logs. A useful prompt skeleton:
 
 ```text
 Goal: <one concrete outcome>
-Read: <exact context paths and applicable instructions>
+Read: <exact context paths and conventions to follow>
 Own: <exact writable paths; touch nothing else>
-Requirements: <behavior, conventions, constraints, and safety limits>
-Acceptance: <observable completion criteria and verification commands>
+Requirements: <behavior, conventions, constraints>
+Acceptance: <observable criteria and the verification command to run>
 
-When done, report:
-- STATUS: complete | blocked
-- FILES: every file changed, or none
-- VERIFICATION: commands/checks run and results
-- ASSUMPTIONS: material assumptions, or none
-- BLOCKERS: unresolved blockers, or none
-- RESULT: concise summary
+When done, print a line starting with TOUCHED: listing every file you created
+or modified, then a one-paragraph summary.
 ```
 
-For read-only tasks, replace `Own` with `Write: none` and require evidence or source locations in `RESULT`.
+For read-only subtasks replace `Own:` with `Write: none` and require source
+locations or evidence in the summary.
 
-### 5. Dispatch and keep slots full
+## Step 5 — Dispatch (always parallel)
 
-Use native collaboration primitives directly:
+**If the `codex-dispatcher` subagent is available** (plugin install), delegate
+to it: pass the task-file paths, the mode flag, and the project root. It runs
+the script, waits, writes the run log, and returns only a summary — keeping
+raw Codex output out of your context.
 
-- Use `spawn_agent` to launch independent tasks with the selected `model` and `reasoning_effort`. Every spawn that sets these overrides must also set `fork_turns` explicitly to `"none"` or a positive bounded turn count, because full-history forks reject model overrides. Prefer `fork_turns: "none"`; the prompt is already self-contained.
-- Respect the currently available concurrency slots, including the host. Launch independent tasks immediately up to capacity.
-- Use `wait_agent` for bounded waits of at most 60 seconds (`timeout_ms <= 60000`) and `list_agents` to inspect state. As work finishes, immediately refill open slots with ready tasks. If a longer overall wait is necessary, update the user before each additional bounded wait.
-- Use `send_message` for information needed by a running agent and `followup_task` for a focused correction or additional pass.
-- Use `interrupt_agent` only when continuing would be harmful, obsolete, or outside scope.
+**Otherwise** run the script yourself from the project root, in one call, with
+a Bash timeout of at least 20 minutes:
 
-Continue useful local orchestration while agents run: inspect dependencies, prepare integration checks, review completed output, and keep the task map current. Send concise user updates during ongoing work so more than 60 seconds never pass without communication.
+```bash
+bash "$DISPATCH" --auto --timeout 20m 01-*.prompt.md 02-*.prompt.md
+```
 
-Do not claim unlimited parallelism or launch work beyond available capacity.
+Every job launches concurrently and the script blocks until all finish. Its
+stdout is a short status table plus the run directory
+(`.codex-swarm/logs/<ts>/`). Read `results.tsv` and each `<name>.last` (the
+agent's final message — small). **Never `cat` a `<name>.out` file**; those are
+full event streams and will flood your context. For failures, read the last
+few lines of `<name>.err`.
 
-### 6. Handle failures with evidence
+Add `--jobs N` if the user asks you to limit concurrency; the default is
+unlimited.
 
-When a subtask fails or returns incomplete work:
+## Step 6 — Verify, integrate, report
 
-1. Inspect its report, diffs, diagnostics, and verification output.
-2. Determine whether the failure is local to the task, caused by missing context, or an integration issue.
-3. Send a focused follow-up to the same agent when it can repair its work efficiently. Include the concrete failing evidence and retain the same ownership boundary.
-4. Reassign only when the original agent cannot continue or the task needs different expertise.
-5. Update downstream tasks if an assumption or interface changed.
+A subtask's own success claim is a handoff, not proof.
 
-Never silently redo all delegated work locally. Small integration seams may be fixed by the host when they remain within scope; substantive rewrites return to an explicitly owned subtask.
-
-### 7. Review and integrate
-
-Treat agent completion as a handoff, not proof of correctness.
-
-1. Inspect every changed file and compare it with its prompt and ownership boundary.
-2. Check compatibility across subtasks, especially imports, interfaces, naming, generated artifacts, and shared assumptions.
-3. Run integration-level verification appropriate to the repository: focused tests first, then broader tests, type checks, lint, builds, or artifact inspection as risk warrants.
-4. Resolve failures using the evidence-driven follow-up loop.
-5. Do not claim completion until the integrated result satisfies the original request.
-
-The run log is an audit trail, not a substitute for review or verification.
-
-### 8. Persist the run log
-
-When project writes are authorized and the project log path is writable, write `.codex-swarm/logs/<ISO-timestamp>.md` for every swarm run. Use a filesystem-safe UTC timestamp such as `2026-08-03T05-45-09Z`.
-
-For read-only requests, path-restricted tasks, or unwritable projects, do not create the directory or log without authorization. Report that persistent logging is blocked by the request or filesystem boundary and include the same compact audit fields in the final response instead. This is a terminal logging fallback, not permission to write elsewhere.
+1. Read the actual diff for every file a subtask claims it touched.
+2. Check cross-subtask compatibility: imports, interfaces, naming, shared
+   assumptions, generated artifacts.
+3. Run integration-level verification: focused tests first, then broader
+   tests, type checks, lint, or build as risk warrants.
+4. On failure, re-dispatch the affected subtask with the concrete failing
+   evidence in the prompt. Fix only small integration seams yourself;
+   substantive rewrites go back to a subtask.
+5. Ensure the run log exists at `.codex-swarm/logs/<ISO-timestamp>.md` (the
+   dispatcher subagent writes it; write it yourself if you dispatched
+   directly). Same timestamp as the run directory:
 
 ```markdown
-# codex-swarm run <ISO-timestamp>
+# codex-swarm run <ts>
 
-<One-paragraph summary of the request, decomposition, outcome, and failures.>
+<One paragraph: what was dispatched, how many subtasks, which models,
+what passed/failed, total wall-clock time.>
 
-- **Wall-clock:** <duration>
-- **Integration verification:** <commands/checks and results>
+- **Mode**: auto | readonly | yolo
+- **Wall-clock**: NNs total
+- **Integration verification**: <commands and results>
 
 ## Subtasks
 
-### <task name> — complete | blocked | failed
-- **Model:** gpt-5.6-sol | gpt-5.6-luna
-- **Reasoning effort:** medium | max
-- **Files:** <paths or none>
-- **Verification:** <checks and results>
-- **Result:** <one or two sentences>
+### <name> — ok | FAIL
+- **Model**: <slug> / <effort>
+- **Duration**: NNs
+- **Files touched**: <from TOUCHED:, or none>
+- **Result**: <one or two sentences>
 ```
 
-Record failed and reassigned attempts rather than erasing them. Include every subtask, exact routing, status, files, verification, and result, plus total wall-clock time and integration verification.
+If the project is read-only or the request forbids writes, skip the log file
+and put the same fields inline in your final message instead.
 
-### 9. Report to the user
+6. Report the integrated outcome, material changes, verification results, any
+   remaining blockers, and the run-log path. Do not dump agent transcripts.
 
-Lead with the integrated outcome. Summarize material changes, verification, any remaining blockers, and per-subtask status. Include the run-log path when persisted; otherwise state why persistence was blocked and include the compact audit inline. Do not dump raw agent transcripts.
+## Red flags
 
-## Rationalizations to Reject
+Stop and return to the relevant step if any of these happen:
 
-| Rationalization | Reality |
-|---|---|
-| "It is faster to write locally." | Substantive writing belongs to subagents; the host spends its time on scope, review, and integration. |
-| "The task does not parallelize." | A single delegated subtask is a valid swarm. |
-| "I need fine control." | Encode control in exact ownership, requirements, acceptance criteria, and review. |
-| "The user did not explicitly ask." | The size trigger makes delegation the default; explicit invocation is not required. |
-| "I already started writing." | Stop and dispatch the remaining substantive work; sunk cost does not change the workflow. |
-| "The small model should use low effort." | The required easy-task mapping is exactly `gpt-5.6-luna` with `reasoning_effort: max`. |
-
-## Red Flags
-
-Stop and correct course if any of these occur:
-
-- Writing substantial artifacts locally before delegation
-- Waiting for parallelism before delegating a substantial single task
+- Writing substantial files locally before dispatching
+- Waiting for parallelism before dispatching a single substantial task
 - Asking the user which model or effort to use
-- Routing to anything other than the two exact model/effort pairs
-- Spawning with model overrides while omitting bounded `fork_turns`
-- Looping on an unavailable model or silently substituting a fallback
-- Giving agents overlapping write ownership
-- Dispatching prompts that depend on unstated conversation context
-- Exceeding available concurrency or leaving ready slots idle without reason
-- Calling `wait_agent` for more than 60 seconds or extending the wait without a user update
-- Treating an agent's success report as sufficient review
-- Retrying blindly, reassigning without evidence, or silently redoing the work locally
-- Omitting the persistent run log when authorized and writable, or writing one when the request is read-only/path-restricted
-- Claiming completion before integration-level verification
-
-All red flags require returning to the relevant workflow step before proceeding.
+- Two subtasks owning the same file
+- Prompts that assume conversation context the Codex session never saw
+- Dispatching a write task in `readonly` mode, or `yolo` without an explicit ask
+- `cat`-ing a `.out` file into your context
+- Treating a subtask's "done" as verification
+- Claiming completion before integration-level checks pass

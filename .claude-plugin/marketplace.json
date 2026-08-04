@@ -1,0 +1,14 @@
+{
+  "name": "swarmgpt",
+  "owner": {
+    "name": "Vallykrie",
+    "email": "nathansudiara@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "swarmgpt",
+      "source": "./",
+      "description": "Codex as your default writer and image generator via the `codex` CLI: automatic decomposition, per-subtask model routing, concurrent dispatch, run logging, and a codex-imagegen skill for real image generation."
+    }
+  ]
+}

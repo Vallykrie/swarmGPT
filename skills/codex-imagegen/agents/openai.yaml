@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex ImageGen"
+  short_description: "Generate and edit image assets via Codex"
+  default_prompt: "Use codex-imagegen to generate or edit these image assets."

@@ -1,4 +1,0 @@
-interface:
-  display_name: "SwarmGPT ImageGen"
-  short_description: "Coordinate native image generation batches"
-  default_prompt: "Use $swarmgpt-imagegen to generate or edit these image assets."

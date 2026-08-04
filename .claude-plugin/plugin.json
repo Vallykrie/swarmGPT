@@ -1,0 +1,14 @@
+{
+  "name": "swarmgpt",
+  "version": "0.2.0",
+  "description": "Make Codex your default writer and image generator: your agent plans and reviews while parallel `codex exec` (GPT-5.6) sessions do the writing, plus a codex-imagegen skill that generates real images through Codex's built-in imagegen tool.",
+  "author": {
+    "name": "Vallykrie",
+    "email": "nathansudiara@gmail.com",
+    "url": "https://github.com/Vallykrie"
+  },
+  "homepage": "https://github.com/Vallykrie/swarmGPT",
+  "repository": "https://github.com/Vallykrie/swarmGPT",
+  "license": "MIT",
+  "keywords": ["codex", "openai", "gpt-5", "swarm", "parallel", "subagents", "orchestration", "image-generation", "chatgpt"]
+}
