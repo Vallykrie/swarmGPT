@@ -1,7 +1,6 @@
 {
   "name": "swarmgpt",
-  "version": "0.3.0",
-  "description": "Make Codex your default writer and image generator: your agent plans and reviews while parallel `codex exec` (GPT-6 Astra, Sol, Luna) sessions do the writing, plus a codex-imagegen skill that generates real images through Codex's built-in imagegen tool.",
+  "description": "Make Codex your default writer and image generator: your agent plans and reviews while parallel `codex exec` (GPT-6) sessions do the writing, plus a codex-imagegen skill that generates real images through Codex's built-in imagegen tool.",
   "author": {
     "name": "Vallykrie",
     "email": "nathansudiara@gmail.com",

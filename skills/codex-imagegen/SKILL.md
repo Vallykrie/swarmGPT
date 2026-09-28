@@ -18,8 +18,8 @@ the file that comes back, and deliver it.
 
 1. `command -v codex` — if missing, stop and tell the user to install the
    Codex CLI (`npm install -g @openai/codex`) and run `codex login`.
-2. Locate `dispatch.sh` as in codex-swarm Step 0. You can also call
-   `codex exec` directly for a single image; the dispatcher is for batches.
+2. Locate `dispatch.sh` as in codex-swarm Step 0 and use it for every job,
+   including a single image — it resolves the current model for you.
 
 ## Step 1 — Build the manifest
 
@@ -52,16 +52,15 @@ what must stay unchanged.
 
 One job per image. Images are independent, so a batch goes out in parallel.
 
-Single image, directly:
+Write one prompt file per image with the `light` tier header, then dispatch
+them together (a single image is a batch of one):
 
-```bash
-codex exec "Generate an image: <full prompt>. Save it to <ABS PATH>. \
-Then print a line starting with TOUCHED: listing the file." \
-  --model gpt-6-luna -c model_reasoning_effort="max" \
-  --sandbox workspace-write --skip-git-repo-check --cd "$PWD"
+```text
+MODEL: light
+
+Generate an image: <full prompt>. Save it to <ABS PATH>, then print a line
+starting with TOUCHED: listing the file.
 ```
-
-Batch — one `MODEL:`-headed prompt file per image, then:
 
 ```bash
 bash "$DISPATCH" --auto --timeout 20m 01-icon-light.prompt.md 02-icon-dark.prompt.md
@@ -77,8 +76,8 @@ Rules:
 - One generation call per asset or variant. A retry is a **new** variant with
   its own path, never a second write to the same path.
 - Two parallel jobs must never target the same output path.
-- Use `gpt-6-luna` at `max` (the light tier); the image model does the
-  heavy lifting, not the reasoning model.
+- Use the `light` tier; the image model does the heavy lifting, not the
+  reasoning model. The dispatcher resolves it to the current Codex model.
 - Image generation takes ~40–90 seconds per asset. Allow at least 5 minutes
   per job and tell the user it is running.
 

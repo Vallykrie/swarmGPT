@@ -20,8 +20,19 @@ jobs:
       - name: ShellCheck
         run: shellcheck scripts/dispatch.sh
 
-      - name: Dispatcher copies are identical
-        run: cmp scripts/dispatch.sh skills/codex-swarm/scripts/dispatch.sh
+      - name: Standalone-skill copies are identical
+        run: |
+          cmp scripts/dispatch.sh skills/codex-swarm/scripts/dispatch.sh
+          cmp scripts/routing.conf skills/codex-swarm/scripts/routing.conf
+
+      - name: Routing table parses
+        run: SWARMGPT_ROUTING=scripts/routing.conf bash scripts/dispatch.sh --print-routing
+
+      - name: README lists the current models
+        run: |
+          for m in $(awk '!/^[[:space:]]*(#|$)/ && NF == 3 { print $2 }' scripts/routing.conf); do
+            grep -q "\`$m\`" README.md || { echo "README model table is missing $m"; exit 1; }
+          done
 
       - name: Manifests are valid JSON
         run: |
@@ -29,11 +40,9 @@ jobs:
             python3 -m json.tool "$f" > /dev/null && echo "ok  $f"
           done
 
-      - name: Plugin versions agree
+      - name: Claude plugin tracks commits (no pinned version)
         run: |
-          a=$(python3 -c 'import json;print(json.load(open(".claude-plugin/plugin.json"))["version"])')
-          b=$(python3 -c 'import json;print(json.load(open(".codex-plugin/plugin.json"))["version"])')
-          [ "$a" = "$b" ] || { echo "version mismatch: claude=$a codex=$b"; exit 1; }
+          python3 -c 'import json,sys; sys.exit("remove \"version\" from .claude-plugin/plugin.json so users track commits" if "version" in json.load(open(".claude-plugin/plugin.json")) else 0)'
 
       - name: No stale model slugs
         run: |

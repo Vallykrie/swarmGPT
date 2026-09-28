@@ -1,5 +1,6 @@
 {
   "name": "swarmgpt",
+  "description": "SwarmGPT: make Codex your default writer and image generator from any coding agent.",
   "owner": {
     "name": "Vallykrie",
     "email": "nathansudiara@gmail.com"

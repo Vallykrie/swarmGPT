@@ -6,7 +6,7 @@ description: Use BEFORE writing or editing code, tests, docs, or other content y
 # codex-swarm
 
 You are the **orchestrator**: you plan, decompose, route, and review. `codex
-exec` sessions running GPT-6 (Astra, Sol, Luna) do the writing and the token-heavy bulk work.
+exec` sessions running GPT-6 do the writing and the token-heavy bulk work.
 **Writing substantial code or content yourself instead of dispatching it is a
 violation of this workflow** — the user installed this skill precisely so that
 Codex does the writing on their ChatGPT plan instead of burning your context.
@@ -89,39 +89,41 @@ Split the task into **independent** subtasks:
 Before dispatch, check the ownership map: every required file has exactly one
 owner, and no file has two.
 
-## Step 3 — Route a model and effort per subtask
+## Step 3 — Route a tier per subtask
 
-Choose per subtask, automatically — never ask the user which model:
+Choose per subtask, automatically — never ask the user which model. Write the
+**tier name**, not a model slug, in the `MODEL:` header:
 
-| Tier | Work profile | `MODEL:` | `EFFORT:` |
-|---|---|---|---|
-| **Heavy** | Very hard or high-stakes: system architecture, cross-cutting refactors, gnarly debugging, concurrency/security-sensitive code, anything where a wrong answer is very expensive | `gpt-6-astra` | `low` |
-| **Medium** | Medium-to-heavy reasoning: feature implementation with real logic, non-trivial refactors, integration-sensitive changes, bug fixes that need investigation | `gpt-6-sol` | `medium` |
-| **Light** | Bulk, boilerplate, mechanical: scaffolding, mass renames, format conversions, test scaffolding, doc generation, file summarization, straightforward CRUD | `gpt-6-luna` | `max` |
+| `MODEL:` | Work profile |
+|---|---|
+| `heavy` | Very hard or high-stakes: system architecture, cross-cutting refactors, gnarly debugging, concurrency/security-sensitive code, anything where a wrong answer is very expensive |
+| `medium` | Medium-to-heavy reasoning: feature implementation with real logic, non-trivial refactors, integration-sensitive changes, bug fixes that need investigation |
+| `light` | Bulk, boilerplate, mechanical: scaffolding, mass renames, format conversions, test scaffolding, doc generation, file summarization, straightforward CRUD |
 
 Classify each subtask by its hardest material requirement; when torn between
-two tiers, pick the heavier one. These are exact Codex model slugs and
-efforts — pass them verbatim. Do not retune the efforts per task: Astra is
-strong enough that `low` is the intended setting, and Luna always gets `max`
-under this skill. Valid efforts are `low`, `medium`, `high`, `xhigh`, `max`
-(plus `ultra` on Astra and Sol).
+two tiers, pick the heavier one. Omit the `EFFORT:` header — each tier already
+carries its tuned effort.
 
-If every job fails with "requires a newer version of Codex", the CLI on
-`PATH` is older than 0.158.0 — stop and tell the user to upgrade
-(`npm install -g @openai/codex@latest`). If a model is otherwise rejected by
-the CLI (every job for it fails immediately), check once with
-`codex exec --help` / the user's `~/.codex/config.toml`, then report the
-failure and ask before substituting. Never silently swap models.
+`dispatch.sh` resolves tiers to concrete Codex models through a routing table
+that it refreshes from the SwarmGPT repository once a day, so routing stays
+current even when this skill file is old. **Do not hardcode model slugs from
+memory.** To see the current mapping, run `bash "$DISPATCH" --print-routing`.
+A literal slug (`MODEL: gpt-6-sol`, optionally with `EFFORT:`) is accepted
+only when the user explicitly asks for a specific model.
+
+If dispatch stops with "codex … is too old", relay its upgrade instructions to
+the user and stop. If a model is otherwise rejected by the CLI (every job for
+it fails immediately), report the failure and ask before substituting. Never
+silently swap models.
 
 ## Step 4 — Write the subtask files
 
 Create one prompt file per subtask in a temp directory (e.g.
-`$(mktemp -d)/01-slug.prompt.md`). Format — model header, optional effort
-header, blank line, then the prompt:
+`$(mktemp -d)/01-slug.prompt.md`). Format — tier header, blank line, then
+the prompt:
 
 ```
-MODEL: gpt-6-luna
-EFFORT: max
+MODEL: light
 
 Create src/parser/tokens.ts ...
 ```
@@ -196,7 +198,7 @@ what passed/failed, total wall-clock time.>
 ## Subtasks
 
 ### <name> — ok | FAIL
-- **Model**: <slug> / <effort>
+- **Model**: <tier> → <slug> / <effort>
 - **Duration**: NNs
 - **Files touched**: <from TOUCHED:, or none>
 - **Result**: <one or two sentences>
@@ -215,6 +217,7 @@ Stop and return to the relevant step if any of these happen:
 - Writing substantial files locally before dispatching
 - Waiting for parallelism before dispatching a single substantial task
 - Asking the user which model or effort to use
+- Hardcoding a model slug instead of a tier
 - Two subtasks owning the same file
 - Prompts that assume conversation context the Codex session never saw
 - Dispatching a write task in `readonly` mode, or `yolo` without an explicit ask

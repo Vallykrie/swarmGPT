@@ -1,7 +1,7 @@
 # SwarmGPT
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.3.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-0.4.0-blue.svg)](CHANGELOG.md)
 [![CI](https://github.com/Vallykrie/swarmGPT/actions/workflows/ci.yml/badge.svg)](https://github.com/Vallykrie/swarmGPT/actions/workflows/ci.yml)
 [![Codex CLI](https://img.shields.io/badge/Codex%20CLI-%E2%89%A50.158.0-black.svg)](https://developers.openai.com/codex/cli)
 [![Models](https://img.shields.io/badge/Models-GPT--6%20Astra%20%C2%B7%20Sol%20%C2%B7%20Luna-10A37F.svg)](#model-routing)
@@ -105,6 +105,17 @@ Run these as **two separate commands** inside Claude Code:
 
 Then confirm: `/help` should list `/codex-swarm` and `/codex-imagegen`.
 
+### Step 4 — Turn on auto-update (recommended)
+
+Claude Code leaves auto-update off for third-party marketplaces. Turn it on
+once so skill and dispatcher fixes reach you automatically: open `/plugin`,
+go to **Marketplaces**, select **swarmgpt**, and choose **Enable
+auto-update**. Without it, update manually with
+`/plugin marketplace update swarmgpt`.
+
+Model routing does not depend on this step — see
+[Always-current routing](#always-current-routing).
+
 Using a different harness? See [docs/harnesses.md](docs/harnesses.md) for
 Cursor, OpenCode, Gemini CLI / Antigravity, and the generic adapter — the
 skill and the script are harness-independent.
@@ -142,25 +153,48 @@ That is why the modes are sandbox levels rather than approval policies.
 Automatic, per subtask — you are never asked to pick. Each subtask is
 classified by its hardest requirement; ties go to the heavier tier.
 
-| Tier | Work profile | Model | Effort |
+| Tier | Work profile | Model (current) | Effort |
 |---|---|---|---|
-| **Heavy** | Architecture, cross-cutting refactors, gnarly debugging, concurrency- or security-sensitive code | `gpt-6-astra` | `low` |
-| **Medium** | Feature work with real logic, non-trivial refactors, integration-sensitive changes, investigative bug fixes | `gpt-6-sol` | `medium` |
-| **Light** | Scaffolding, renames, format conversions, test scaffolding, docs, straightforward CRUD, image jobs | `gpt-6-luna` | `max` |
+| `heavy` | Architecture, cross-cutting refactors, gnarly debugging, concurrency- or security-sensitive code | `gpt-6-astra` | `low` |
+| `medium` | Feature work with real logic, non-trivial refactors, integration-sensitive changes, investigative bug fixes | `gpt-6-sol` | `medium` |
+| `light` | Scaffolding, renames, format conversions, test scaffolding, docs, straightforward CRUD, image jobs | `gpt-6-luna` | `max` |
 
-To change the routing, edit the table in
-[`skills/codex-swarm/SKILL.md`](skills/codex-swarm/SKILL.md) (Step 3) — every
-harness wrapper reads it from there.
+### Always-current routing
+
+The skill only ever names a **tier**. `dispatch.sh` maps tiers to concrete
+models through [`scripts/routing.conf`](scripts/routing.conf), and refreshes
+that table from this repository's `main` branch at most once a day
+(cached in `~/.cache/swarmgpt/`). When OpenAI ships or retires a model, one
+edit to `routing.conf` re-routes every install — Claude Code, Cursor,
+OpenCode, a stale git clone — without anyone updating the plugin.
+
+- **Offline or GitHub unreachable?** It uses the last cached table, then the
+  copy bundled with your install. A fetch failure never blocks a run.
+- **Locked-down by design.** A fetched table may only contain tier, model and
+  effort names plus a minimum CLI version; anything else rejects the whole
+  file. It cannot run commands.
+- **Too-old CLI?** The table carries `min-codex`, and dispatch stops with
+  upgrade instructions instead of failing every job.
+
+```bash
+bash scripts/dispatch.sh --print-routing
+```
+
+| Variable | Effect |
+|---|---|
+| `SWARMGPT_OFFLINE=1` | never fetch; use the cache or the bundled table |
+| `SWARMGPT_ROUTING=/path/file` | pin your own routing table (no fetch) |
+| `SWARMGPT_ROUTING_URL` | fetch from a fork or internal mirror instead |
+| `SWARMGPT_ROUTING_TTL` | seconds between fetch attempts (default `86400`) |
 
 ---
 
 ## Under the hood
 
-Each subtask becomes a prompt file whose first line names the model:
+Each subtask becomes a prompt file whose first line names its tier:
 
 ```
-MODEL: gpt-6-luna
-EFFORT: max
+MODEL: light
 
 Goal: ...
 Own: src/parser/tokens.ts
@@ -176,9 +210,10 @@ bash scripts/dispatch.sh --auto --timeout 20m 01-*.prompt.md 02-*.prompt.md
 ```
 
 ```
-dispatched: 01-schema   [gpt-6-astra/low]  (pid 85779)
-dispatched: 02-handler  [gpt-6-sol/medium]  (pid 85798)
-dispatched: 03-docs     [gpt-6-luna/max]  (pid 85811)
+dispatched: 01-schema   [heavy -> gpt-6-astra/low]  (pid 85779)
+dispatched: 02-handler  [medium -> gpt-6-sol/medium]  (pid 85798)
+dispatched: 03-docs     [light -> gpt-6-luna/max]  (pid 85811)
+routing: remote, cached from https://raw.githubusercontent.com/Vallykrie/swarmGPT/main/scripts/routing.conf
 waiting on 3 parallel codex job(s), 1200s cap each...
 
 run directory: .codex-swarm/logs/2026-09-28T01-19-20Z
@@ -201,7 +236,8 @@ Plus a human-readable `.codex-swarm/logs/<timestamp>.md` run log. Add
 `.codex-swarm/` to your `.gitignore`.
 
 Script options: `--auto` / `--readonly` / `--yolo`, `--timeout 20m`,
-`--jobs N` (concurrency cap, default unlimited), `--log-root DIR`.
+`--jobs N` (concurrency cap, default unlimited), `--log-root DIR`,
+`--print-routing`.
 Exit code is 0 only if every job succeeded.
 
 ---
@@ -219,11 +255,12 @@ Exit code is 0 only if every job succeeded.
 │   ├── codex-swarm.md
 │   └── codex-imagegen.md
 ├── scripts/
-│   └── dispatch.sh
+│   ├── dispatch.sh
+│   └── routing.conf         # tier → model table, fetched live by every install
 ├── skills/
 │   ├── codex-swarm/
 │   │   ├── SKILL.md
-│   │   └── scripts/dispatch.sh   # byte-identical copy for standalone installs (CI-enforced)
+│   │   └── scripts/              # byte-identical copies for standalone installs (CI-enforced)
 │   └── codex-imagegen/SKILL.md
 ├── docs/harnesses.md
 └── .github/                 # CI, issue and PR templates
@@ -256,8 +293,9 @@ Or install the playbook as a prompt — see
 shell has not picked up the npm global bin directory. Check with
 `which codex`.
 
-**`The 'gpt-6-astra' model requires a newer version of Codex`** — the
-`codex` first on your `PATH` predates GPT-6. Upgrade to 0.158.0+ and check
+**`codex … is too old; the routed models need …`** (or Codex's own
+"requires a newer version of Codex") — the `codex` first on your `PATH` is
+older than the routing table's `min-codex`. Upgrade, then check
 `which -a codex`: a stale copy earlier on `PATH` (e.g. `~/.local/bin`) wins.
 
 **Every job fails in a couple of seconds** — almost always auth. Run

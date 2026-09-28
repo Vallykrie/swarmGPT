@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-28
+
+### Added
+
+- **Always-current model routing.** Skills now name a tier (`heavy`,
+  `medium`, `light`) and `dispatch.sh` resolves it through
+  `scripts/routing.conf`, refreshed from `main` at most once a day and cached
+  in `~/.cache/swarmgpt/`. Model changes reach every install without a plugin
+  update. Falls back to the cache, then the bundled table, when offline.
+- Strict validation of fetched routing tables (tier, model and effort names
+  only); `SWARMGPT_OFFLINE`, `SWARMGPT_ROUTING`, `SWARMGPT_ROUTING_URL` and
+  `SWARMGPT_ROUTING_TTL` overrides; `--print-routing`.
+- Pre-flight Codex CLI version check against the table's `min-codex`, with
+  upgrade instructions instead of every job failing.
+- Warning when a routed model is missing from the local Codex model list.
+- README step for enabling Claude Code auto-update.
+
+### Changed
+
+- The Claude Code plugin manifest no longer pins `version`, so users with
+  auto-update track every commit.
+- `codex-imagegen` dispatches every image through `dispatch.sh` with the
+  `light` tier.
+- Literal model slugs in `MODEL:` headers still work, for explicit requests.
+
 ## [0.3.0] - 2026-09-28
 
 ### Changed
@@ -45,7 +70,8 @@ All notable changes to this project are documented here. The format follows
 
 - Initial `codex-swarm` skill and Claude Code plugin manifests.
 
-[Unreleased]: https://github.com/Vallykrie/swarmGPT/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Vallykrie/swarmGPT/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Vallykrie/swarmGPT/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Vallykrie/swarmGPT/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Vallykrie/swarmGPT/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Vallykrie/swarmGPT/releases/tag/v0.1.0

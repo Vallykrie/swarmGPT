@@ -2,12 +2,18 @@
 # dispatch.sh — launch a swarm of parallel `codex exec` (Codex CLI / GPT) jobs.
 #
 # Each TASKFILE is a subtask prompt file. Its first line must be a model
-# header; an EFFORT header may follow:
+# header naming a routing tier (preferred) or a literal Codex model slug; an
+# EFFORT header may follow and overrides the tier's effort:
 #
-#     MODEL: gpt-6-sol
-#     EFFORT: medium
+#     MODEL: medium
 #
 #     <the subtask prompt, any number of lines>
+#
+# Tiers (heavy, medium, light) are resolved through routing.conf. The table is
+# refreshed from GitHub at most once per SWARMGPT_ROUTING_TTL seconds and
+# cached under ~/.cache/swarmgpt/, so model changes reach every install
+# without a plugin update. Resolution order: $SWARMGPT_ROUTING (explicit
+# file) > the newer of the cached remote table and the bundled routing.conf.
 #
 # Jobs are launched concurrently and waited on. Raw output is collected under
 # LOG_ROOT/<ISO-timestamp>/ :
@@ -33,6 +39,13 @@
 #   --timeout   per-job wall-clock limit, e.g. 15m, 900s, 1h (default: 20m)
 #   --jobs      max concurrent codex sessions, 0 = unlimited (default: 0)
 #   --log-root  where run directories are created (default: .codex-swarm/logs)
+#   --print-routing  print the resolved routing table and exit
+#
+# Environment:
+#   SWARMGPT_ROUTING      path to a routing file to use instead (no fetch)
+#   SWARMGPT_OFFLINE=1    never fetch; use the cache or the bundled table
+#   SWARMGPT_ROUTING_URL  where to fetch the live table from
+#   SWARMGPT_ROUTING_TTL  seconds between fetch attempts (default: 86400)
 #
 # Exit code: 0 if every job succeeded, 1 otherwise.
 
@@ -42,10 +55,11 @@ MODE="auto"
 TIMEOUT="20m"
 JOBS=0
 LOG_ROOT=".codex-swarm/logs"
+PRINT_ROUTING=0
 TASKFILES=()
 
 usage() {
-  sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'
+  awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
   exit "${1:-0}"
 }
 
@@ -57,12 +71,91 @@ while [ $# -gt 0 ]; do
     --timeout)  shift; TIMEOUT="${1:?--timeout needs a value}" ;;
     --jobs)     shift; JOBS="${1:?--jobs needs a value}" ;;
     --log-root) shift; LOG_ROOT="${1:?--log-root needs a value}" ;;
+    --print-routing) PRINT_ROUTING=1 ;;
     -h|--help)  usage 0 ;;
     -*)         echo "dispatch.sh: unknown option: $1" >&2; usage 1 ;;
     *)          TASKFILES+=("$1") ;;
   esac
   shift
 done
+
+# --- model routing ---------------------------------------------------------
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BUNDLED_ROUTING="$SCRIPT_DIR/routing.conf"
+ROUTING_URL="${SWARMGPT_ROUTING_URL:-https://raw.githubusercontent.com/Vallykrie/swarmGPT/main/scripts/routing.conf}"
+ROUTING_TTL="${SWARMGPT_ROUTING_TTL:-86400}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/swarmgpt"
+CACHED_ROUTING="$CACHE_DIR/routing.conf"
+LAST_CHECK="$CACHE_DIR/last-check"
+
+valid_routing() {
+  # valid_routing FILE — strict grammar, so a fetched table can only ever name
+  # models, efforts and a minimum CLI version; any other line rejects the file
+  [ -s "$1" ] || return 1
+  awk '
+    /^[[:space:]]*(#|$)/ { next }
+    $1 == "min-codex" && NF == 2 && $2 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ { next }
+    NF == 3 && $1 ~ /^[a-z][a-z0-9-]*$/ && $2 ~ /^[A-Za-z0-9][A-Za-z0-9._-]*$/ &&
+      $3 ~ /^(minimal|low|medium|high|xhigh|max|ultra)$/ { tiers++; next }
+    { bad = 1 }
+    END { exit (bad || !tiers) }
+  ' "$1"
+}
+
+mtime() {
+  stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0
+}
+
+refresh_routing() {
+  # at most one fetch attempt per TTL window; failures keep the old cache
+  [ "${SWARMGPT_OFFLINE:-0}" = "1" ] && return
+  command -v curl >/dev/null 2>&1 || return
+  if [ -f "$LAST_CHECK" ] && [ $(( $(date +%s) - $(mtime "$LAST_CHECK") )) -lt "$ROUTING_TTL" ]; then
+    return
+  fi
+  mkdir -p "$CACHE_DIR" 2>/dev/null || return
+  touch "$LAST_CHECK"
+  local tmp="$CACHED_ROUTING.$$"
+  if curl -fsSL --max-time 5 "$ROUTING_URL" -o "$tmp" 2>/dev/null && valid_routing "$tmp"; then
+    mv -f "$tmp" "$CACHED_ROUTING"
+  else
+    rm -f "$tmp"
+  fi
+}
+
+ROUTING_FILE=""
+ROUTING_SRC="none"
+if [ -n "${SWARMGPT_ROUTING:-}" ]; then
+  valid_routing "$SWARMGPT_ROUTING" || {
+    echo "dispatch.sh: SWARMGPT_ROUTING=$SWARMGPT_ROUTING is missing or malformed" >&2; exit 1; }
+  ROUTING_FILE="$SWARMGPT_ROUTING"; ROUTING_SRC="override ($SWARMGPT_ROUTING)"
+else
+  refresh_routing
+  if valid_routing "$CACHED_ROUTING" &&
+     { ! valid_routing "$BUNDLED_ROUTING" ||
+       [ "$(mtime "$CACHED_ROUTING")" -ge "$(mtime "$BUNDLED_ROUTING")" ]; }; then
+    ROUTING_FILE="$CACHED_ROUTING"; ROUTING_SRC="remote, cached from $ROUTING_URL"
+  elif valid_routing "$BUNDLED_ROUTING"; then
+    ROUTING_FILE="$BUNDLED_ROUTING"; ROUTING_SRC="bundled ($BUNDLED_ROUTING)"
+  fi
+fi
+
+route() {
+  # route TIER — prints "<model> <effort>", or nothing if TIER is not a tier
+  [ -n "$ROUTING_FILE" ] || return 0
+  awk -v t="$1" '$1 == t && NF == 3 { print $2, $3; exit }' "$ROUTING_FILE"
+}
+
+MIN_CODEX=""
+[ -n "$ROUTING_FILE" ] && MIN_CODEX="$(awk '$1 == "min-codex" { print $2; exit }' "$ROUTING_FILE")"
+
+if [ "$PRINT_ROUTING" = "1" ]; then
+  echo "routing source: $ROUTING_SRC"
+  [ -n "$ROUTING_FILE" ] || exit 1
+  [ -n "$MIN_CODEX" ] && echo "min codex:      $MIN_CODEX"
+  awk '!/^[[:space:]]*(#|$)/ && NF == 3 { printf "  %-8s -> %s / %s\n", $1, $2, $3 }' "$ROUTING_FILE"
+  exit 0
+fi
 
 [ "${#TASKFILES[@]}" -gt 0 ] || { echo "dispatch.sh: no task files given" >&2; usage 1; }
 
@@ -71,6 +164,26 @@ command -v codex >/dev/null 2>&1 || {
   echo "  npm install -g @openai/codex   (or: brew install codex)" >&2
   exit 1
 }
+
+version_lt() {
+  # version_lt A B — true when A < B, comparing major.minor.patch numerically
+  awk -v a="$1" -v b="$2" 'BEGIN {
+    split(a, x, /[.-]/); split(b, y, /[.-]/)
+    for (i = 1; i <= 3; i++) { if (x[i] + 0 < y[i] + 0) exit 0; if (x[i] + 0 > y[i] + 0) exit 1 }
+    exit 1 }'
+}
+
+if [ -n "$MIN_CODEX" ]; then
+  CODEX_VERSION="$(codex --version 2>/dev/null | awk '{ print $NF; exit }')"
+  if [ -n "$CODEX_VERSION" ] && version_lt "$CODEX_VERSION" "$MIN_CODEX"; then
+    echo "dispatch.sh: codex $CODEX_VERSION at $(command -v codex) is too old; the routed models need $MIN_CODEX+." >&2
+    echo "  upgrade:  npm install -g @openai/codex@latest   (or: brew upgrade codex)" >&2
+    echo "  then check 'which -a codex' — an older copy earlier on PATH still wins." >&2
+    exit 1
+  fi
+fi
+
+MODELS_CACHE="${CODEX_HOME:-$HOME/.codex}/models_cache.json"
 
 # --- normalize the timeout to whole seconds -------------------------------
 case "$TIMEOUT" in
@@ -138,12 +251,23 @@ for f in "${TASKFILES[@]}"; do
   header="$(head -n 1 "$f")"
   case "$header" in
     [Mm][Oo][Dd][Ee][Ll]:*) ;;
-    *) echo "dispatch.sh: $f: first line must be 'MODEL: <codex model slug>'" >&2; exit 1 ;;
+    *) echo "dispatch.sh: $f: first line must be 'MODEL: <tier or codex model slug>'" >&2; exit 1 ;;
   esac
   model="$(printf '%s' "$header" | sed 's/^[Mm][Oo][Dd][Ee][Ll]:[[:space:]]*//')"
   [ -n "$model" ] || { echo "dispatch.sh: $f: empty MODEL header" >&2; exit 1; }
 
+  tier=""
   effort="medium"
+  resolved="$(route "$model")"
+  if [ -n "$resolved" ]; then
+    tier="$model"; model="${resolved% *}"; effort="${resolved#* }"
+  else
+    case "$model" in
+      heavy|medium|light)
+        echo "dispatch.sh: $f: tier '$model' needs a routing table, but none was found" >&2; exit 1 ;;
+    esac
+  fi
+
   body_from=2
   line2="$(sed -n '2p' "$f")"
   case "$line2" in
@@ -153,6 +277,10 @@ for f in "${TASKFILES[@]}"; do
       ;;
   esac
   [ -n "$effort" ] || { echo "dispatch.sh: $f: empty EFFORT header" >&2; exit 1; }
+
+  if [ -f "$MODELS_CACHE" ] && ! grep -q "\"$model\"" "$MODELS_CACHE"; then
+    echo "dispatch.sh: warning: $model is not in your local Codex model list ($MODELS_CACHE); the job may fail" >&2
+  fi
 
   name="$(basename "$f")"
   name="${name%.prompt.md}"; name="${name%.md}"; name="${name%.txt}"
@@ -172,9 +300,10 @@ for f in "${TASKFILES[@]}"; do
   run_one "$name" "$model" "$effort" "$promptfile" &
   PIDS+=($!)
   NAMES+=("$name")
-  echo "dispatched: $name  [$model/$effort]  (pid $!)"
+  echo "dispatched: $name  [${tier:+$tier -> }$model/$effort]  (pid $!)"
 done
 
+echo "routing: $ROUTING_SRC"
 echo "waiting on ${#PIDS[@]} parallel codex job(s), ${TIMEOUT_S}s cap each..."
 
 FAILED=0

@@ -11,6 +11,12 @@ The script has no harness dependencies at all: any agent that can run Bash can
 use it. In all cases the requirements are the same as Claude Code's: `codex`
 on `PATH`, logged in (`codex login`), project directory writable.
 
+**Staying current.** Model routing updates itself in every harness:
+`dispatch.sh` refreshes its tier → model table from GitHub once a day (see
+the README's *Always-current routing*). The playbooks themselves only update
+when you update the install — for the git-clone adapters below, run
+`git -C ~/.swarmgpt pull` now and then.
+
 ---
 
 ## Claude Code — the reference install
