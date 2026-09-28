@@ -57,7 +57,7 @@ Single image, directly:
 ```bash
 codex exec "Generate an image: <full prompt>. Save it to <ABS PATH>. \
 Then print a line starting with TOUCHED: listing the file." \
-  --model gpt-5.6-luna -c model_reasoning_effort="medium" \
+  --model gpt-6-luna -c model_reasoning_effort="max" \
   --sandbox workspace-write --skip-git-repo-check --cd "$PWD"
 ```
 
@@ -77,8 +77,8 @@ Rules:
 - One generation call per asset or variant. A retry is a **new** variant with
   its own path, never a second write to the same path.
 - Two parallel jobs must never target the same output path.
-- Use `gpt-5.6-luna` at `medium`; the image model does the work, not the
-  reasoning tier.
+- Use `gpt-6-luna` at `max` (the light tier); the image model does the
+  heavy lifting, not the reasoning model.
 - Image generation takes ~40–90 seconds per asset. Allow at least 5 minutes
   per job and tell the user it is running.
 

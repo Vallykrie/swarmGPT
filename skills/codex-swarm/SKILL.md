@@ -6,12 +6,12 @@ description: Use BEFORE writing or editing code, tests, docs, or other content y
 # codex-swarm
 
 You are the **orchestrator**: you plan, decompose, route, and review. `codex
-exec` sessions running GPT-5.6 do the writing and the token-heavy bulk work.
+exec` sessions running GPT-6 (Astra, Sol, Luna) do the writing and the token-heavy bulk work.
 **Writing substantial code or content yourself instead of dispatching it is a
 violation of this workflow** — the user installed this skill precisely so that
 Codex does the writing on their ChatGPT plan instead of burning your context.
 
-Verified against Codex CLI **0.146.0**. Re-check `codex exec --help` if flags
+Verified against Codex CLI **0.158.0** (the GPT-6 models require it). Re-check `codex exec --help` if flags
 seem wrong — this CLI changes fast.
 
 ## Delegate by default
@@ -93,19 +93,25 @@ owner, and no file has two.
 
 Choose per subtask, automatically — never ask the user which model:
 
-| Work profile | `MODEL:` | `EFFORT:` |
-|---|---|---|
-| Reasoning-heavy or ambiguous: debugging, architecture, tricky refactors, integration-sensitive changes, anything where a wrong answer is expensive | `gpt-5.6-sol` | `medium` |
-| Bulk, boilerplate, mechanical: scaffolding, mass renames, format conversions, test scaffolding, doc generation, file summarization, straightforward CRUD | `gpt-5.6-luna` | `max` |
+| Tier | Work profile | `MODEL:` | `EFFORT:` |
+|---|---|---|---|
+| **Heavy** | Very hard or high-stakes: system architecture, cross-cutting refactors, gnarly debugging, concurrency/security-sensitive code, anything where a wrong answer is very expensive | `gpt-6-astra` | `low` |
+| **Medium** | Medium-to-heavy reasoning: feature implementation with real logic, non-trivial refactors, integration-sensitive changes, bug fixes that need investigation | `gpt-6-sol` | `medium` |
+| **Light** | Bulk, boilerplate, mechanical: scaffolding, mass renames, format conversions, test scaffolding, doc generation, file summarization, straightforward CRUD | `gpt-6-luna` | `max` |
 
-Classify each subtask by its hardest material requirement. These are exact
-Codex model slugs — pass them verbatim. Do not lower Luna's effort because the
-task looks easy; `gpt-5.6-luna` always gets `max` under this skill. Valid
-efforts are `low`, `medium`, `high`, `xhigh`, `max`.
+Classify each subtask by its hardest material requirement; when torn between
+two tiers, pick the heavier one. These are exact Codex model slugs and
+efforts — pass them verbatim. Do not retune the efforts per task: Astra is
+strong enough that `low` is the intended setting, and Luna always gets `max`
+under this skill. Valid efforts are `low`, `medium`, `high`, `xhigh`, `max`
+(plus `ultra` on Astra and Sol).
 
-If a model is rejected by the CLI (every job for it fails immediately), check
-once with `codex exec --help` / the user's `~/.codex/config.toml`, then report
-the failure and ask before substituting. Never silently swap models.
+If every job fails with "requires a newer version of Codex", the CLI on
+`PATH` is older than 0.158.0 — stop and tell the user to upgrade
+(`npm install -g @openai/codex@latest`). If a model is otherwise rejected by
+the CLI (every job for it fails immediately), check once with
+`codex exec --help` / the user's `~/.codex/config.toml`, then report the
+failure and ask before substituting. Never silently swap models.
 
 ## Step 4 — Write the subtask files
 
@@ -114,7 +120,7 @@ Create one prompt file per subtask in a temp directory (e.g.
 header, blank line, then the prompt:
 
 ```
-MODEL: gpt-5.6-luna
+MODEL: gpt-6-luna
 EFFORT: max
 
 Create src/parser/tokens.ts ...

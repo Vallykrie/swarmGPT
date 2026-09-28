@@ -1,6 +1,6 @@
 {
   "name": "swarmgpt",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Fan work out to parallel `codex exec` sessions with per-subtask model routing, on-disk run logs, and image generation.",
   "author": {
     "name": "Vallykrie",
@@ -10,12 +10,12 @@
   "homepage": "https://github.com/Vallykrie/swarmGPT",
   "repository": "https://github.com/Vallykrie/swarmGPT.git",
   "license": "MIT",
-  "keywords": ["codex", "openai", "gpt-5", "swarm", "parallel", "orchestration", "agent-skills", "image-generation"],
+  "keywords": ["codex", "openai", "gpt-6", "swarm", "parallel", "orchestration", "agent-skills", "image-generation"],
   "skills": "./skills/",
   "interface": {
     "displayName": "SwarmGPT",
     "shortDescription": "Parallel codex exec swarms with run logs",
-    "longDescription": "Decompose a task into independently owned subtasks, route each to gpt-5.6-sol or gpt-5.6-luna, dispatch them as concurrent codex exec sessions, and keep an auditable run log. Note: an interactive Codex session already has native multi-agent support — this plugin adds per-subtask model routing and on-disk logs on top of it.",
+    "longDescription": "Decompose a task into independently owned subtasks, route each to gpt-6-astra, gpt-6-sol or gpt-6-luna by difficulty, dispatch them as concurrent codex exec sessions, and keep an auditable run log. Note: an interactive Codex session already has native multi-agent support — this plugin adds per-subtask model routing and on-disk logs on top of it.",
     "developerName": "Vallykrie",
     "category": "Developer Tools",
     "capabilities": ["Read", "Write"],

@@ -4,7 +4,7 @@
 # Each TASKFILE is a subtask prompt file. Its first line must be a model
 # header; an EFFORT header may follow:
 #
-#     MODEL: gpt-5.6-sol
+#     MODEL: gpt-6-sol
 #     EFFORT: medium
 #
 #     <the subtask prompt, any number of lines>

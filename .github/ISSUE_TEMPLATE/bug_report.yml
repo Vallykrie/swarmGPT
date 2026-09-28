@@ -1,0 +1,31 @@
+name: Bug report
+description: Something in the skill, dispatcher, or plugin install is broken
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: input
+    id: harness
+    attributes:
+      label: Harness
+      placeholder: Claude Code 2.x / Cursor / OpenCode / Codex / other
+    validations:
+      required: true
+  - type: input
+    id: codex
+    attributes:
+      label: Codex CLI version
+      description: Output of `codex --version`
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: The status table, `results.tsv`, and the tail of any `<name>.err`. Please do not paste `.out` files or anything containing credentials.
+      render: text

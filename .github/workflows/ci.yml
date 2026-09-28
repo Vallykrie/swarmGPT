@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax
+        run: bash -n scripts/dispatch.sh
+
+      - name: ShellCheck
+        run: shellcheck scripts/dispatch.sh
+
+      - name: Dispatcher copies are identical
+        run: cmp scripts/dispatch.sh skills/codex-swarm/scripts/dispatch.sh
+
+      - name: Manifests are valid JSON
+        run: |
+          for f in .claude-plugin/*.json .codex-plugin/*.json .agents/plugins/*.json; do
+            python3 -m json.tool "$f" > /dev/null && echo "ok  $f"
+          done
+
+      - name: Plugin versions agree
+        run: |
+          a=$(python3 -c 'import json;print(json.load(open(".claude-plugin/plugin.json"))["version"])')
+          b=$(python3 -c 'import json;print(json.load(open(".codex-plugin/plugin.json"))["version"])')
+          [ "$a" = "$b" ] || { echo "version mismatch: claude=$a codex=$b"; exit 1; }
+
+      - name: No stale model slugs
+        run: |
+          if grep -rnE 'gpt-5(\.[0-9]+)?-(sol|luna|astra)' --exclude-dir=.git --exclude=CHANGELOG.md .; then
+            echo "Found outdated model slugs; update them to the current routing table."
+            exit 1
+          fi

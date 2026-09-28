@@ -1,8 +1,10 @@
 # SwarmGPT
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.2.0-blue.svg)](.claude-plugin/plugin.json)
-[![Codex CLI](https://img.shields.io/badge/Codex%20CLI-0.146.0-black.svg)](https://developers.openai.com/codex/cli)
+[![Version](https://img.shields.io/badge/Version-0.3.0-blue.svg)](CHANGELOG.md)
+[![CI](https://github.com/Vallykrie/swarmGPT/actions/workflows/ci.yml/badge.svg)](https://github.com/Vallykrie/swarmGPT/actions/workflows/ci.yml)
+[![Codex CLI](https://img.shields.io/badge/Codex%20CLI-%E2%89%A50.158.0-black.svg)](https://developers.openai.com/codex/cli)
+[![Models](https://img.shields.io/badge/Models-GPT--6%20Astra%20%C2%B7%20Sol%20%C2%B7%20Luna-10A37F.svg)](#model-routing)
 
 **Make Codex your writer.** Your coding agent plans, routes, and reviews;
 parallel `codex exec` sessions do the token-heavy writing on the ChatGPT plan
@@ -66,7 +68,7 @@ Or with Homebrew:
 brew install codex
 ```
 
-Verify — SwarmGPT is tested against **0.146.0**:
+Verify — the GPT-6 models need **0.158.0 or newer** (`npm install -g @openai/codex@latest` to upgrade):
 
 ```bash
 codex --version
@@ -137,12 +139,18 @@ That is why the modes are sandbox levels rather than approval policies.
 
 ### Model routing
 
-Automatic, per subtask. You are never asked to pick.
+Automatic, per subtask — you are never asked to pick. Each subtask is
+classified by its hardest requirement; ties go to the heavier tier.
 
-| Work profile | Model | Effort |
-|---|---|---|
-| Reasoning-heavy: debugging, architecture, tricky refactors, integration-sensitive changes | `gpt-5.6-sol` | `medium` |
-| Bulk and mechanical: scaffolding, renames, test scaffolding, docs, straightforward CRUD | `gpt-5.6-luna` | `max` |
+| Tier | Work profile | Model | Effort |
+|---|---|---|---|
+| **Heavy** | Architecture, cross-cutting refactors, gnarly debugging, concurrency- or security-sensitive code | `gpt-6-astra` | `low` |
+| **Medium** | Feature work with real logic, non-trivial refactors, integration-sensitive changes, investigative bug fixes | `gpt-6-sol` | `medium` |
+| **Light** | Scaffolding, renames, format conversions, test scaffolding, docs, straightforward CRUD, image jobs | `gpt-6-luna` | `max` |
+
+To change the routing, edit the table in
+[`skills/codex-swarm/SKILL.md`](skills/codex-swarm/SKILL.md) (Step 3) — every
+harness wrapper reads it from there.
 
 ---
 
@@ -151,7 +159,7 @@ Automatic, per subtask. You are never asked to pick.
 Each subtask becomes a prompt file whose first line names the model:
 
 ```
-MODEL: gpt-5.6-luna
+MODEL: gpt-6-luna
 EFFORT: max
 
 Goal: ...
@@ -168,14 +176,16 @@ bash scripts/dispatch.sh --auto --timeout 20m 01-*.prompt.md 02-*.prompt.md
 ```
 
 ```
-dispatched: 01-alpha  [gpt-5.6-luna/low]  (pid 85779)
-dispatched: 02-beta   [gpt-5.6-luna/low]  (pid 85798)
-waiting on 2 parallel codex job(s), 300s cap each...
+dispatched: 01-schema   [gpt-6-astra/low]  (pid 85779)
+dispatched: 02-handler  [gpt-6-sol/medium]  (pid 85798)
+dispatched: 03-docs     [gpt-6-luna/max]  (pid 85811)
+waiting on 3 parallel codex job(s), 1200s cap each...
 
-run directory: .codex-swarm/logs/2026-08-04T01-19-20Z
+run directory: .codex-swarm/logs/2026-09-28T01-19-20Z
 SUBTASK      MODEL          EFFORT   STATUS SECONDS
-01-alpha     gpt-5.6-luna   low      ok     21
-02-beta      gpt-5.6-luna   low      ok     23
+01-schema    gpt-6-astra    low      ok     94
+02-handler   gpt-6-sol      medium   ok     61
+03-docs      gpt-6-luna     max      ok     38
 ```
 
 Artifacts land in `.codex-swarm/logs/<timestamp>/`:
@@ -213,9 +223,10 @@ Exit code is 0 only if every job succeeded.
 ├── skills/
 │   ├── codex-swarm/
 │   │   ├── SKILL.md
-│   │   └── scripts/dispatch.sh   # copy, for standalone skill installs
+│   │   └── scripts/dispatch.sh   # byte-identical copy for standalone installs (CI-enforced)
 │   └── codex-imagegen/SKILL.md
-└── docs/harnesses.md
+├── docs/harnesses.md
+└── .github/                 # CI, issue and PR templates
 ```
 
 ---
@@ -245,6 +256,10 @@ Or install the playbook as a prompt — see
 shell has not picked up the npm global bin directory. Check with
 `which codex`.
 
+**`The 'gpt-6-astra' model requires a newer version of Codex`** — the
+`codex` first on your `PATH` predates GPT-6. Upgrade to 0.158.0+ and check
+`which -a codex`: a stale copy earlier on `PATH` (e.g. `~/.local/bin`) wins.
+
 **Every job fails in a couple of seconds** — almost always auth. Run
 `codex login`, then retry the Step 2 smoke test.
 
@@ -266,10 +281,10 @@ tolerates) to cap concurrency.
 
 ## Contributing
 
-Issues and PRs welcome at
-[Vallykrie/swarmGPT](https://github.com/Vallykrie/swarmGPT). Behavior lives in
-`skills/*/SKILL.md` and `scripts/dispatch.sh` — change it there, not in the
-per-harness wrappers.
+Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Behavior
+lives in `skills/*/SKILL.md` and `scripts/dispatch.sh`; change it there, not in
+the per-harness wrappers. Release notes are in [CHANGELOG.md](CHANGELOG.md),
+and security reports go through [SECURITY.md](SECURITY.md).
 
 ## License
 
