@@ -15,7 +15,7 @@
   "interface": {
     "displayName": "SwarmGPT",
     "shortDescription": "Parallel codex exec swarms with run logs",
-    "longDescription": "Decompose a task into independently owned subtasks, route each to a heavy, medium or light tier whose Codex model is resolved from a live routing table, dispatch them as concurrent codex exec sessions, and keep an auditable run log. Note: an interactive Codex session already has native multi-agent support — this plugin adds per-subtask model routing and on-disk logs on top of it.",
+    "longDescription": "Decompose a task into independently owned subtasks, choose a Codex model and effort for each from the live list your Codex CLI reports, dispatch them as concurrent codex exec sessions, and keep an auditable run log. Note: an interactive Codex session already has native multi-agent support — this plugin adds per-subtask model routing and on-disk logs on top of it.",
     "developerName": "Vallykrie",
     "category": "Developer Tools",
     "capabilities": ["Read", "Write"],

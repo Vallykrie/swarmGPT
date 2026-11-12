@@ -4,7 +4,7 @@
 [![Version](https://img.shields.io/badge/Version-0.4.0-blue.svg)](CHANGELOG.md)
 [![CI](https://github.com/Vallykrie/swarmGPT/actions/workflows/ci.yml/badge.svg)](https://github.com/Vallykrie/swarmGPT/actions/workflows/ci.yml)
 [![Codex CLI](https://img.shields.io/badge/Codex%20CLI-%E2%89%A50.158.0-black.svg)](https://developers.openai.com/codex/cli)
-[![Models](https://img.shields.io/badge/Models-GPT--6%20Astra%20%C2%B7%20Sol%20%C2%B7%20Luna-10A37F.svg)](#model-routing)
+[![Models](https://img.shields.io/badge/Models-live%20from%20codex-10A37F.svg)](#model-routing)
 
 **Make Codex your writer.** Your coding agent plans, routes, and reviews;
 parallel `codex exec` sessions do the token-heavy writing on the ChatGPT plan
@@ -68,7 +68,7 @@ Or with Homebrew:
 brew install codex
 ```
 
-Verify — the GPT-6 models need **0.158.0 or newer** (`npm install -g @openai/codex@latest` to upgrade):
+Verify — newer CLIs can run newer models, so keep it current (`npm install -g @openai/codex@latest` to upgrade):
 
 ```bash
 codex --version
@@ -113,8 +113,8 @@ go to **Marketplaces**, select **swarmgpt**, and choose **Enable
 auto-update**. Without it, update manually with
 `/plugin marketplace update swarmgpt`.
 
-Model routing does not depend on this step — see
-[Always-current routing](#always-current-routing).
+Model choice does not depend on this step — see
+[Model routing](#model-routing).
 
 Using a different harness? See [docs/harnesses.md](docs/harnesses.md) for
 Cursor, OpenCode, Gemini CLI / Antigravity, and the generic adapter — the
@@ -150,51 +150,46 @@ That is why the modes are sandbox levels rather than approval policies.
 
 ### Model routing
 
-Automatic, per subtask — you are never asked to pick. Each subtask is
-classified by its hardest requirement; ties go to the heavier tier.
-
-| Tier | Work profile | Model (current) | Effort |
-|---|---|---|---|
-| `heavy` | Architecture, cross-cutting refactors, gnarly debugging, concurrency- or security-sensitive code | `gpt-6-astra` | `low` |
-| `medium` | Feature work with real logic, non-trivial refactors, integration-sensitive changes, investigative bug fixes | `gpt-6-sol` | `medium` |
-| `light` | Scaffolding, renames, format conversions, test scaffolding, docs, straightforward CRUD, image jobs | `gpt-6-luna` | `max` |
-
-### Always-current routing
-
-The skill only ever names a **tier**. `dispatch.sh` maps tiers to concrete
-models through [`scripts/routing.conf`](scripts/routing.conf), and refreshes
-that table from this repository's `main` branch at most once a day
-(cached in `~/.cache/swarmgpt/`). When OpenAI ships or retires a model, one
-edit to `routing.conf` re-routes every install — Claude Code, Cursor,
-OpenCode, a stale git clone — without anyone updating the plugin.
-
-- **Offline or GitHub unreachable?** It uses the last cached table, then the
-  copy bundled with your install. A fetch failure never blocks a run.
-- **Locked-down by design.** A fetched table may only contain tier, model and
-  effort names plus a minimum CLI version; anything else rejects the whole
-  file. It cannot run commands.
-- **Too-old CLI?** The table carries `min-codex`, and dispatch stops with
-  upgrade instructions instead of failing every job.
+Automatic, per subtask — you are never asked to pick, and nothing here needs
+updating when OpenAI ships a model. Before each run your agent lists the
+models your installed Codex CLI can run for your account, straight from
+`codex debug models`:
 
 ```bash
-bash scripts/dispatch.sh --print-routing
+bash scripts/dispatch.sh --list-models
 ```
 
-| Variable | Effect |
-|---|---|
-| `SWARMGPT_OFFLINE=1` | never fetch; use the cache or the bundled table |
-| `SWARMGPT_ROUTING=/path/file` | pin your own routing table (no fetch) |
-| `SWARMGPT_ROUTING_URL` | fetch from a fork or internal mirror instead |
-| `SWARMGPT_ROUTING_TTL` | seconds between fetch attempts (default `86400`) |
+```
+MODEL              VERSION  FAMILY     EFFORTS (default*)                 DESCRIPTION
+gpt-6-luna         6        luna       low,medium*,high,xhigh,max         Fast and affordable model for easier tasks.
+gpt-5.6-terra      5.6      terra      low,medium*,high,xhigh,max,ultra   Older balanced model for straightforward work.
+```
+
+Hidden and superseded models are dropped, and only the newest version of
+each family is shown. Your agent rates each subtask heavy, medium or light by
+its hardest requirement, then picks a model from the list by its description
+(the most capable for heavy work, a fast one for light work) and an effort
+that model supports. The models above are an example; yours depend on your
+Codex version and plan.
+
+- **Checked before launch.** `dispatch.sh` refuses the whole run, before any
+  job starts, if a task names a model that is not on the live list or an
+  effort that model does not support, and prints the valid choices.
+- **Newest CLI wins.** If several `codex` binaries are on your `PATH` (an old
+  one in `~/.local/bin` shadowing a newer npm install, say), the scripts use
+  the newest one, since newer CLIs can run newer models. Set `CODEX=/path` to
+  pin one.
 
 ---
 
 ## Under the hood
 
-Each subtask becomes a prompt file whose first line names its tier:
+Each subtask becomes a prompt file whose first lines name its model and
+effort, taken from `--list-models`:
 
 ```
-MODEL: light
+MODEL: gpt-6-luna
+EFFORT: low
 
 Goal: ...
 Own: src/parser/tokens.ts
@@ -210,17 +205,17 @@ bash scripts/dispatch.sh --auto --timeout 20m 01-*.prompt.md 02-*.prompt.md
 ```
 
 ```
-dispatched: 01-schema   [heavy -> gpt-6-astra/low]  (pid 85779)
-dispatched: 02-handler  [medium -> gpt-6-sol/medium]  (pid 85798)
-dispatched: 03-docs     [light -> gpt-6-luna/max]  (pid 85811)
-routing: remote, cached from https://raw.githubusercontent.com/Vallykrie/swarmGPT/main/scripts/routing.conf
+dispatched: 01-schema   [gpt-6-luna/xhigh]  (pid 85779)
+dispatched: 02-handler  [gpt-6-luna/medium]  (pid 85798)
+dispatched: 03-docs     [gpt-6-luna/low]  (pid 85811)
+codex: /usr/local/bin/codex
 waiting on 3 parallel codex job(s), 1200s cap each...
 
 run directory: .codex-swarm/logs/2026-09-28T01-19-20Z
 SUBTASK      MODEL          EFFORT   STATUS SECONDS
-01-schema    gpt-6-astra    low      ok     94
-02-handler   gpt-6-sol      medium   ok     61
-03-docs      gpt-6-luna     max      ok     38
+01-schema    gpt-6-luna     xhigh    ok     94
+02-handler   gpt-6-luna     medium   ok     61
+03-docs      gpt-6-luna     low      ok     38
 ```
 
 Artifacts land in `.codex-swarm/logs/<timestamp>/`:
@@ -237,7 +232,7 @@ Plus a human-readable `.codex-swarm/logs/<timestamp>.md` run log. Add
 
 Script options: `--auto` / `--readonly` / `--yolo`, `--timeout 20m`,
 `--jobs N` (concurrency cap, default unlimited), `--log-root DIR`,
-`--print-routing`.
+`--list-models`.
 Exit code is 0 only if every job succeeded.
 
 ---
@@ -256,7 +251,7 @@ Exit code is 0 only if every job succeeded.
 │   └── codex-imagegen.md
 ├── scripts/
 │   ├── dispatch.sh
-│   └── routing.conf         # tier → model table, fetched live by every install
+│   └── list-models.sh       # live model list from `codex debug models`
 ├── skills/
 │   ├── codex-swarm/
 │   │   ├── SKILL.md
@@ -274,7 +269,7 @@ An interactive Codex session **does not need this plugin's dispatcher** — Code
 ships native multi-agent support (`spawn_agent`/`wait_agent`) and its own
 `imagegen` tool. Use those directly instead.
 
-If you still want the per-subtask routing and on-disk run logs from inside
+If you still want the per-subtask model choice and on-disk run logs from inside
 Codex, the repo carries a Codex plugin manifest:
 
 ```bash
@@ -293,10 +288,10 @@ Or install the playbook as a prompt — see
 shell has not picked up the npm global bin directory. Check with
 `which codex`.
 
-**`codex … is too old; the routed models need …`** (or Codex's own
-"requires a newer version of Codex") — the `codex` first on your `PATH` is
-older than the routing table's `min-codex`. Upgrade, then check
-`which -a codex`: a stale copy earlier on `PATH` (e.g. `~/.local/bin`) wins.
+**`'…' is not a current Codex model for this CLI and account`** — a task
+named a model your Codex CLI cannot run. The error lists the models you do
+have. If a model you expect is missing, upgrade the CLI
+(`npm install -g @openai/codex@latest`); newer CLIs list newer models.
 
 **Every job fails in a couple of seconds** — almost always auth. Run
 `codex login`, then retry the Step 2 smoke test.

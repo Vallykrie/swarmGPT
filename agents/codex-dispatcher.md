@@ -10,7 +10,9 @@ reasoning: run the dispatch script, wait, write the run log, report back small.
 
 You will be given:
 - a list of subtask prompt files (each starts with a `MODEL:` header line,
-  optionally followed by an `EFFORT:` line),
+  optionally followed by an `EFFORT:` line, chosen by the orchestrator; the
+  script checks both against the live Codex model list and refuses the run
+  if one is unavailable),
 - a mode flag: `--auto`, `--readonly`, or `--yolo`,
 - the project root directory (run everything from there),
 - the path to `dispatch.sh` (`${CLAUDE_PLUGIN_ROOT}/scripts/dispatch.sh` if
@@ -56,6 +58,10 @@ Procedure:
    - the one-paragraph summary,
    - a one-line-per-subtask list: `name — ok|FAIL — model/effort — NNs`,
    - the log file path and the run directory path.
+
+If the script refuses the run because of a `MODEL:` or `EFFORT:` header, do
+not edit the task files: report the error and the valid models it printed to
+the orchestrator.
 
 Hard rules:
 - Never paste raw Codex stdout into your response or the log's Result fields.

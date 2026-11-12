@@ -19,7 +19,12 @@ the file that comes back, and deliver it.
 1. `command -v codex` — if missing, stop and tell the user to install the
    Codex CLI (`npm install -g @openai/codex`) and run `codex login`.
 2. Locate `dispatch.sh` as in codex-swarm Step 0 and use it for every job,
-   including a single image — it resolves the current model for you.
+   including a single image.
+3. Run `bash "$DISPATCH" --list-models` and pick the fast, affordable model
+   from the newest generation (its description says so) with the `low`
+   effort: the image tool does the heavy lifting, not the reasoning model.
+   Use a more capable model only when the prompt itself needs reasoning, such
+   as an exact edit with many invariants.
 
 ## Step 1 — Build the manifest
 
@@ -52,11 +57,12 @@ what must stay unchanged.
 
 One job per image. Images are independent, so a batch goes out in parallel.
 
-Write one prompt file per image with the `light` tier header, then dispatch
-them together (a single image is a batch of one):
+Write one prompt file per image with the model and effort you chose in
+Step 0, then dispatch them together (a single image is a batch of one):
 
 ```text
-MODEL: light
+MODEL: <model slug from --list-models>
+EFFORT: low
 
 Generate an image: <full prompt>. Save it to <ABS PATH>, then print a line
 starting with TOUCHED: listing the file.
@@ -76,8 +82,8 @@ Rules:
 - One generation call per asset or variant. A retry is a **new** variant with
   its own path, never a second write to the same path.
 - Two parallel jobs must never target the same output path.
-- Use the `light` tier; the image model does the heavy lifting, not the
-  reasoning model. The dispatcher resolves it to the current Codex model.
+- Take the model slug from the live `--list-models` table, never from
+  memory; the dispatcher refuses anything not on it.
 - Image generation takes ~40–90 seconds per asset. Allow at least 5 minutes
   per job and tell the user it is running.
 

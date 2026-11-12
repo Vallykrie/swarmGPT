@@ -6,6 +6,26 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The orchestrator chooses models from a live list.** `scripts/list-models.sh`
+  reads `codex debug models` and shows the models this CLI and account can
+  run: hidden and superseded models dropped, newest version of each family
+  only, with supported efforts and descriptions. Skills rate each subtask
+  heavy, medium or light and pick a model slug and effort from that list, so
+  model releases need no change to this repository.
+- `dispatch.sh` validates every `MODEL:` and `EFFORT:` header against the
+  live list before any job starts, refusing the whole run with the valid
+  choices on a mismatch; `--list-models` prints the list.
+- Both scripts use the newest `codex` on `PATH` (override with `CODEX`).
+
+### Removed
+
+- The `heavy` / `medium` / `light` tier headers, `scripts/routing.conf`, the
+  daily remote routing fetch, `min-codex`, `--print-routing`, and the
+  `SWARMGPT_ROUTING*` / `SWARMGPT_OFFLINE` variables. The routed `gpt-6-astra`
+  and `gpt-6-sol` models are not available to ChatGPT-plan Codex accounts.
+
 ## [0.4.0] - 2026-09-28
 
 ### Added

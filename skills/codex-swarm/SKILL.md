@@ -6,12 +6,12 @@ description: Use BEFORE writing or editing code, tests, docs, or other content y
 # codex-swarm
 
 You are the **orchestrator**: you plan, decompose, route, and review. `codex
-exec` sessions running GPT-6 do the writing and the token-heavy bulk work.
+exec` sessions running GPT models do the writing and the token-heavy bulk work.
 **Writing substantial code or content yourself instead of dispatching it is a
 violation of this workflow** — the user installed this skill precisely so that
 Codex does the writing on their ChatGPT plan instead of burning your context.
 
-Verified against Codex CLI **0.158.0** (the GPT-6 models require it). Re-check `codex exec --help` if flags
+Verified against Codex CLI **0.158.0**. Re-check `codex exec --help` if flags
 seem wrong — this CLI changes fast.
 
 ## Delegate by default
@@ -46,7 +46,11 @@ turn the remaining work into subtask prompts, and dispatch.
    - `${CLAUDE_PLUGIN_ROOT}/scripts/dispatch.sh` (plugin install)
    - `scripts/dispatch.sh` next to this SKILL.md (standalone skill install)
    - `$(dirname "$0")/../../scripts/dispatch.sh` (repo checkout)
-3. If `codex exec` later fails every job with an auth error, stop and tell the
+3. Run `bash "$DISPATCH" --list-models` and keep the table for Step 3. It is
+   the live list of Codex models this CLI and account can run, newest version
+   of each family only, with each model's supported efforts and description.
+   It is the only valid source of model slugs for this run.
+4. If `codex exec` later fails every job with an auth error, stop and tell the
    user to run `codex login` in a terminal. Never paste a key into chat.
 
 ## Step 1 — Resolve the sandbox mode
@@ -89,41 +93,53 @@ Split the task into **independent** subtasks:
 Before dispatch, check the ownership map: every required file has exactly one
 owner, and no file has two.
 
-## Step 3 — Route a tier per subtask
+## Step 3 — Choose a model and effort per subtask
 
-Choose per subtask, automatically — never ask the user which model. Write the
-**tier name**, not a model slug, in the `MODEL:` header:
+You choose for every subtask yourself — never ask the user. Choose only from
+the `--list-models` table from Step 0; never use a model slug from memory or
+from an earlier run. Models change often, so judge each one by what the table
+says about it, not by its name.
 
-| `MODEL:` | Work profile |
-|---|---|
-| `heavy` | Very hard or high-stakes: system architecture, cross-cutting refactors, gnarly debugging, concurrency/security-sensitive code, anything where a wrong answer is very expensive |
-| `medium` | Medium-to-heavy reasoning: feature implementation with real logic, non-trivial refactors, integration-sensitive changes, bug fixes that need investigation |
-| `light` | Bulk, boilerplate, mechanical: scaffolding, mass renames, format conversions, test scaffolding, doc generation, file summarization, straightforward CRUD |
+1. **Rate the subtask** by its hardest material requirement:
+   - *Heavy* — architecture, cross-cutting refactors, gnarly debugging,
+     concurrency- or security-sensitive code, anything where a wrong answer
+     is very expensive.
+   - *Medium* — feature work with real logic, non-trivial refactors,
+     integration-sensitive changes, bug fixes that need investigation.
+   - *Light* — scaffolding, renames, format conversions, test scaffolding,
+     docs, file summaries, straightforward CRUD, image jobs.
 
-Classify each subtask by its hardest material requirement; when torn between
-two tiers, pick the heavier one. Omit the `EFFORT:` header — each tier already
-carries its tuned effort.
+   When torn between two ratings, pick the heavier one.
+2. **Pick the model.** Read each model's description: the most capable model
+   on the list (described as frontier, flagship, or for complex work) for
+   heavy work, a balanced model for medium work, a fast or affordable model
+   for light work. Prefer the newest generation; a model whose description
+   calls it "older" is only for a rating that no newer model covers.
+3. **Pick the effort** from that model's supported efforts: higher efforts
+   (`high`, `xhigh`, `max`) for heavy work or when one model must cover a
+   heavier rating than it was built for, the default (marked `*`) for medium
+   work, `low` for mechanical work.
 
-`dispatch.sh` resolves tiers to concrete Codex models through a routing table
-that it refreshes from the SwarmGPT repository once a day, so routing stays
-current even when this skill file is old. **Do not hardcode model slugs from
-memory.** To see the current mapping, run `bash "$DISPATCH" --print-routing`.
-A literal slug (`MODEL: gpt-6-sol`, optionally with `EFFORT:`) is accepted
-only when the user explicitly asks for a specific model.
+Mix models within a run. When a subtask hard-fails and you re-dispatch it,
+raise its effort or move it to a more capable model.
 
-If dispatch stops with "codex … is too old", relay its upgrade instructions to
-the user and stop. If a model is otherwise rejected by the CLI (every job for
-it fails immediately), report the failure and ask before substituting. Never
-silently swap models.
+Write the choice into the task file headers: the model slug (first column)
+in `MODEL:` and the effort in `EFFORT:`. The dispatcher checks both against
+the live list before launching anything; one unknown model or unsupported
+effort refuses the whole run and prints the valid choices, so fix the header
+and dispatch again. If a model is rejected by the CLI at run time (every job
+for it fails immediately), report the failure and ask before substituting.
+Never silently swap models.
 
 ## Step 4 — Write the subtask files
 
 Create one prompt file per subtask in a temp directory (e.g.
-`$(mktemp -d)/01-slug.prompt.md`). Format — tier header, blank line, then
-the prompt:
+`$(mktemp -d)/01-slug.prompt.md`). Format — model header, effort header,
+blank line, then the prompt:
 
 ```
-MODEL: light
+MODEL: <model slug from --list-models>
+EFFORT: <one of its efforts>
 
 Create src/parser/tokens.ts ...
 ```
@@ -198,7 +214,7 @@ what passed/failed, total wall-clock time.>
 ## Subtasks
 
 ### <name> — ok | FAIL
-- **Model**: <tier> → <slug> / <effort>
+- **Model**: <slug> / <effort> (and why: heavy | medium | light)
 - **Duration**: NNs
 - **Files touched**: <from TOUCHED:, or none>
 - **Result**: <one or two sentences>
@@ -217,7 +233,7 @@ Stop and return to the relevant step if any of these happen:
 - Writing substantial files locally before dispatching
 - Waiting for parallelism before dispatching a single substantial task
 - Asking the user which model or effort to use
-- Hardcoding a model slug instead of a tier
+- Using a model slug from memory instead of the `--list-models` table
 - Two subtasks owning the same file
 - Prompts that assume conversation context the Codex session never saw
 - Dispatching a write task in `readonly` mode, or `yolo` without an explicit ask
